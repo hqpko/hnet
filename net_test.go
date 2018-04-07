@@ -25,8 +25,9 @@ func TestNet(t *testing.T) {
 	go func() {
 		s, e := Connect(network, addr)
 		checkTestErr(e, t, w)
-		s.SetMaxPoolBufferSize(1 << 2)
+		s.SetBufferPoolSize(1 << 2)
 		s.SetMaxReadingBytesSize(1 << 10)
+		s.SetMaxBufferSizeInPool(1 << 10)
 		checkTestErr(
 			s.ReadWithCallback(func(b *hbuffer.Buffer) {
 				receiveMsg := string(b.GetRestOfBytes())
