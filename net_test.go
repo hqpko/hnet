@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/hqpko/hbuffer"
+	"github.com/hqpko/hpool"
 )
 
 func TestNet(t *testing.T) {
@@ -13,11 +14,23 @@ func TestNet(t *testing.T) {
 	msg := "hello socket!"
 	w := &sync.WaitGroup{}
 	w.Add(1)
+
+	maxBufferSizeInPool := 1 << 10
+	pool := hpool.NewPool(func() interface{} {
+		return hbuffer.NewBuffer()
+	}, 1<<4)
+	pool.SetDebug(true)
+	pool.SetPutChecker(func(i interface{}) bool {
+		b := i.(*hbuffer.Buffer)
+		return b.Cap() > maxBufferSizeInPool
+	})
+
 	go func() {
 		checkTestErr(
 			Listen(network,
 				addr,
 				func(s *Socket) {
+					s.SetBufferPool(pool)
 					s.Write([]byte(msg))
 				}),
 			t, w)
@@ -25,9 +38,8 @@ func TestNet(t *testing.T) {
 	go func() {
 		s, e := Connect(network, addr)
 		checkTestErr(e, t, w)
-		s.SetBufferPoolSize(1 << 2)
+		s.SetBufferPool(pool)
 		s.SetMaxReadingBytesSize(1 << 10)
-		s.SetMaxBufferSizeInPool(1 << 10)
 		checkTestErr(
 			s.ReadWithCallback(func(b *hbuffer.Buffer) {
 				receiveMsg := string(b.GetRestOfBytes())

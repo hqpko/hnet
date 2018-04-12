@@ -8,16 +8,13 @@ import (
 
 	"time"
 
-	"sync/atomic"
-
 	"github.com/hqpko/hbuffer"
 	"github.com/hqpko/hpool"
 )
 
 const (
-	defMaxReadingBytesSize = 1 << 12 //4k
-	defMaxBufferSizeInPool = 1 << 12 //4k
-	defBufferPoolSize      = 1 << 6  //64
+	defBufferPoolSize      = 1 << 2  //4
+	defMaxReadingBytesSize = 1 << 10 //1k
 	defTimeoutDuration     = 8 * time.Second
 )
 
@@ -33,7 +30,6 @@ type Socket struct {
 	readTimeoutDuration  time.Duration
 	writeTimeoutDuration time.Duration
 
-	debug                        bool
 	removeOverMaxSizeBufferCount uint32
 }
 
@@ -43,29 +39,17 @@ func createSocket(c net.Conn) *Socket {
 		conn:                 c,
 		maxReadingBytesSize:  defMaxReadingBytesSize,
 		bufferPoolSize:       defBufferPoolSize,
-		maxBufferSizeInPool:  defMaxBufferSizeInPool,
 		readTimeoutDuration:  defTimeoutDuration,
 		writeTimeoutDuration: defTimeoutDuration,
 	}
 }
 
-func (s *Socket) SetDebug(b bool) {
-	s.debug = b
-	if s.bufferPool != nil {
-		s.bufferPool.SetDebug(b)
-	}
-}
-
-func (s *Socket) SetBufferPoolSize(size int) {
-	s.bufferPoolSize = size
+func (s *Socket) SetBufferPool(p *hpool.Pool) {
+	s.bufferPool = p
 }
 
 func (s *Socket) SetMaxReadingBytesSize(size uint32) {
 	s.maxReadingBytesSize = size
-}
-
-func (s *Socket) SetMaxBufferSizeInPool(size uint64) {
-	s.maxBufferSizeInPool = size
 }
 
 func (s *Socket) SetTimeoutDuration(d time.Duration) {
@@ -85,9 +69,9 @@ func (s *Socket) ReadWithCallback(callback func(*hbuffer.Buffer)) error {
 	s.initBufferPool()
 
 	for {
-		b, e := s.read(s.GetBuffer())
+		b, e := s.read(s.bufferPool.Get().(*hbuffer.Buffer))
 		if e != nil {
-			s.PutBuffer(b)
+			s.bufferPool.Put(b)
 			return e
 		}
 		callback(b)
@@ -105,9 +89,9 @@ func (s *Socket) ReadWithChan(c chan *hbuffer.Buffer) error {
 func (s *Socket) ReadOne() (*hbuffer.Buffer, error) {
 	s.initBufferPool()
 
-	b, e := s.read(s.GetBuffer())
+	b, e := s.read(s.bufferPool.Get().(*hbuffer.Buffer))
 	if e != nil {
-		s.PutBuffer(b)
+		s.bufferPool.Put(b)
 		return nil, e
 	}
 	return b, nil
@@ -120,8 +104,8 @@ func (s *Socket) Write(b []byte) error {
 
 	s.SetWriteDeadline(time.Now().Add(s.writeTimeoutDuration))
 
-	bf := s.GetBuffer()
-	defer s.PutBuffer(bf)
+	bf := s.bufferPool.Get().(*hbuffer.Buffer)
+	defer s.bufferPool.Put(bf)
 	bf.WriteUint32(uint32(len(b)))
 	_, e := s.conn.Write(bf.GetBytes())
 	if e != nil {
@@ -163,31 +147,7 @@ func (s *Socket) initBufferPool() {
 		s.bufferPool = hpool.NewPool(func() interface{} {
 			return hbuffer.NewBuffer()
 		}, s.bufferPoolSize)
-		s.bufferPool.SetDebug(s.debug)
 	}
-}
-
-func (s *Socket) GetBuffer() *hbuffer.Buffer {
-	return s.bufferPool.Get().(*hbuffer.Buffer)
-}
-
-func (s *Socket) PutBuffer(b *hbuffer.Buffer) {
-	if b == nil {
-		return
-	}
-	if b.Len() > s.maxBufferSizeInPool {
-		if s.debug {
-			atomic.AddUint32(&s.removeOverMaxSizeBufferCount, 1)
-		}
-		return
-	}
-	b.Reset()
-	s.bufferPool.Put(b)
-}
-
-func (s *Socket) GetBufferPoolDebugInfo() (uint32, uint32, uint32, uint32, uint32) {
-	newCount, getCount, putCount, removeCount := s.bufferPool.GetDebugInfo()
-	return newCount, getCount, putCount, removeCount, s.removeOverMaxSizeBufferCount
 }
 
 func (s *Socket) LocalAddr() net.Addr {
