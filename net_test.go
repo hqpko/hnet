@@ -27,7 +27,7 @@ func TestNet(t *testing.T) {
 
 	go func() {
 		checkTestErr(
-			Listen(network,
+			ListenSocket(network,
 				addr,
 				func(s *Socket) {
 					s.SetBufferPool(pool)
@@ -36,7 +36,7 @@ func TestNet(t *testing.T) {
 			t, w)
 	}()
 	go func() {
-		s, e := Connect(network, addr)
+		s, e := ConnectSocket(network, addr)
 		checkTestErr(e, t, w)
 		s.SetBufferPool(pool)
 		s.SetMaxReadingBytesSize(1 << 10)
@@ -46,6 +46,7 @@ func TestNet(t *testing.T) {
 				if receiveMsg != msg {
 					t.Errorf("reading error msg:%s", receiveMsg)
 				}
+				pool.Put(b)
 				w.Done()
 			}),
 			t, w)

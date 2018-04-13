@@ -33,7 +33,7 @@ type Socket struct {
 	removeOverMaxSizeBufferCount uint32
 }
 
-func createSocket(c net.Conn) *Socket {
+func NewSocket(c net.Conn) *Socket {
 	return &Socket{
 		lock:                 &sync.Mutex{},
 		conn:                 c,

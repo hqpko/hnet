@@ -2,7 +2,7 @@ package hnet
 
 import "net"
 
-func Listen(network, addr string, callback func(socket *Socket)) error {
+func ListenSocket(network, addr string, callback func(socket *Socket)) error {
 	listener, err := net.Listen(network, addr)
 	if err != nil {
 		return err
@@ -12,14 +12,14 @@ func Listen(network, addr string, callback func(socket *Socket)) error {
 		if e != nil {
 			return e
 		}
-		callback(createSocket(c))
+		callback(NewSocket(c))
 	}
 }
 
-func Connect(network, addr string) (*Socket, error) {
+func ConnectSocket(network, addr string) (*Socket, error) {
 	c, e := net.Dial(network, addr)
 	if e != nil {
 		return nil, e
 	}
-	return createSocket(c), nil
+	return NewSocket(c), nil
 }
