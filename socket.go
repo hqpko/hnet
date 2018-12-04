@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	defBufferPoolSize      = 1 << 2  //4
 	defMaxReadingBytesSize = 1 << 10 //1k
 	defTimeoutDuration     = 8 * time.Second
 )
@@ -23,14 +22,11 @@ var ErrOverMaxReadingSize = errors.New("over max reading size")
 type Socket struct {
 	lock                 *sync.Mutex
 	conn                 net.Conn
-	bufferPoolSize       int
 	maxReadingBytesSize  uint32
 	maxBufferSizeInPool  uint64
 	bufferPool           *hpool.Pool
 	readTimeoutDuration  time.Duration
 	writeTimeoutDuration time.Duration
-
-	removeOverMaxSizeBufferCount uint32
 }
 
 func NewSocket(c net.Conn) *Socket {
@@ -38,7 +34,6 @@ func NewSocket(c net.Conn) *Socket {
 		lock:                 &sync.Mutex{},
 		conn:                 c,
 		maxReadingBytesSize:  defMaxReadingBytesSize,
-		bufferPoolSize:       defBufferPoolSize,
 		readTimeoutDuration:  defTimeoutDuration,
 		writeTimeoutDuration: defTimeoutDuration,
 	}
@@ -66,12 +61,10 @@ func (s *Socket) SetWriteTimeoutDuration(d time.Duration) {
 }
 
 func (s *Socket) ReadWithCallback(callback func(*hbuffer.Buffer)) error {
-	s.initBufferPool()
-
 	for {
-		b, e := s.read(s.bufferPool.Get().(*hbuffer.Buffer))
+		b, e := s.read(s.getBuffer())
 		if e != nil {
-			s.bufferPool.Put(b)
+			s.putBuffer(b)
 			return e
 		}
 		callback(b)
@@ -87,25 +80,22 @@ func (s *Socket) ReadWithChan(c chan *hbuffer.Buffer) error {
 }
 
 func (s *Socket) ReadOne() (*hbuffer.Buffer, error) {
-	s.initBufferPool()
-
-	b, e := s.read(s.bufferPool.Get().(*hbuffer.Buffer))
+	b, e := s.read(s.getBuffer())
 	if e != nil {
-		s.bufferPool.Put(b)
+		s.putBuffer(b)
 		return nil, e
 	}
 	return b, nil
 }
 
 func (s *Socket) Write(b []byte) error {
-	s.initBufferPool()
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
 	s.SetWriteDeadline(time.Now().Add(s.writeTimeoutDuration))
 
-	bf := s.bufferPool.Get().(*hbuffer.Buffer)
-	defer s.bufferPool.Put(bf)
+	bf := s.getBuffer()
+	defer s.putBuffer(bf)
 	bf.WriteUint32(uint32(len(b)))
 	_, e := s.conn.Write(bf.GetBytes())
 	if e != nil {
@@ -117,7 +107,6 @@ func (s *Socket) Write(b []byte) error {
 
 //WriteWithBuffer default with bytes size
 func (s *Socket) WriteWithBuffer(b *hbuffer.Buffer) error {
-	s.initBufferPool()
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -142,14 +131,6 @@ func (s *Socket) read(b *hbuffer.Buffer) (*hbuffer.Buffer, error) {
 	return b, e
 }
 
-func (s *Socket) initBufferPool() {
-	if s.bufferPool == nil {
-		s.bufferPool = hpool.NewPool(func() interface{} {
-			return hbuffer.NewBuffer()
-		}, s.bufferPoolSize)
-	}
-}
-
 func (s *Socket) LocalAddr() net.Addr {
 	return s.conn.LocalAddr()
 }
@@ -172,4 +153,17 @@ func (s *Socket) SetWriteDeadline(t time.Time) error {
 
 func (s *Socket) Close() error {
 	return s.conn.Close()
+}
+
+func (s *Socket) getBuffer() *hbuffer.Buffer {
+	if s.bufferPool != nil {
+		return s.bufferPool.Get().(*hbuffer.Buffer)
+	}
+	return hbuffer.NewBuffer()
+}
+
+func (s *Socket) putBuffer(bf *hbuffer.Buffer) {
+	if s.bufferPool != nil {
+		s.bufferPool.Put(bf)
+	}
 }
