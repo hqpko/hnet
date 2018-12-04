@@ -158,18 +158,18 @@ func (s *Socket) RemoteAddr() net.Addr {
 	return s.conn.RemoteAddr()
 }
 
-func (s *Socket) SetDeadline(t time.Time) {
-	s.conn.SetDeadline(t)
+func (s *Socket) SetDeadline(t time.Time) error {
+	return s.conn.SetDeadline(t)
 }
 
-func (s *Socket) SetReadDeadline(t time.Time) {
-	s.conn.SetReadDeadline(t)
+func (s *Socket) SetReadDeadline(t time.Time) error {
+	return s.conn.SetReadDeadline(t)
 }
 
-func (s *Socket) SetWriteDeadline(t time.Time) {
-	s.conn.SetWriteDeadline(t)
+func (s *Socket) SetWriteDeadline(t time.Time) error {
+	return s.conn.SetWriteDeadline(t)
 }
 
-func (s *Socket) Close() {
-	s.conn.Close()
+func (s *Socket) Close() error {
+	return s.conn.Close()
 }
