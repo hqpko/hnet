@@ -3,6 +3,8 @@ package hnet
 import (
 	"net"
 	"time"
+
+	"github.com/xtaci/kcp-go"
 )
 
 func Listen(network, addr string, callback func(conn net.Conn)) error {
@@ -48,4 +50,28 @@ func ConnectSocket(network, addr string) (*Socket, error) {
 		return nil, e
 	}
 	return NewSocket(c), nil
+}
+
+func ListenKcpSocket(addr string, callback func(socket *Socket), funcInitKcp func(session *kcp.UDPSession)) error {
+	listener, err := kcp.ListenWithOptions(addr, nil, 0, 0)
+	if err != nil {
+		return err
+	}
+	for {
+		kcpConn, err := listener.AcceptKCP()
+		if err != nil {
+			return err
+		}
+		funcInitKcp(kcpConn)
+		callback(NewSocket(kcpConn))
+	}
+}
+
+func ConnectKcpSocket(addr string, funcInitKcp func(session *kcp.UDPSession)) (*Socket, error) {
+	kcpConn, err := kcp.DialWithOptions(addr, nil, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	funcInitKcp(kcpConn)
+	return NewSocket(kcpConn), nil
 }
