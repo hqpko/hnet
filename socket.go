@@ -92,7 +92,9 @@ func (s *Socket) Write(b []byte) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	s.SetWriteDeadline(time.Now().Add(s.writeTimeoutDuration))
+	if e := s.SetWriteDeadline(time.Now().Add(s.writeTimeoutDuration)); e != nil {
+		return e
+	}
 
 	bf := s.getBuffer()
 	defer s.putBuffer(bf)
@@ -110,14 +112,18 @@ func (s *Socket) WriteWithBuffer(b *hbuffer.Buffer) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	s.SetWriteDeadline(time.Now().Add(s.writeTimeoutDuration))
+	if e := s.SetWriteDeadline(time.Now().Add(s.writeTimeoutDuration)); e != nil {
+		return e
+	}
 
 	_, e := s.conn.Write(b.GetBytes())
 	return e
 }
 
 func (s *Socket) read(b *hbuffer.Buffer) (*hbuffer.Buffer, error) {
-	s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration))
+	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
+		return b, e
+	}
 
 	_, e := b.ReadFull(s.conn, 4)
 	if e != nil {
