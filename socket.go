@@ -27,6 +27,7 @@ type Socket struct {
 	bufferPool           *hpool.Pool
 	readTimeoutDuration  time.Duration
 	writeTimeoutDuration time.Duration
+	cacheBuffer          *hbuffer.Buffer
 }
 
 func NewSocket(c net.Conn) *Socket {
@@ -36,6 +37,7 @@ func NewSocket(c net.Conn) *Socket {
 		maxReadingBytesSize:  defMaxReadingBytesSize,
 		readTimeoutDuration:  defTimeoutDuration,
 		writeTimeoutDuration: defTimeoutDuration,
+		cacheBuffer:          hbuffer.NewBuffer(),
 	}
 }
 
@@ -96,10 +98,9 @@ func (s *Socket) Write(b []byte) error {
 		return e
 	}
 
-	bf := s.getBuffer()
-	defer s.putBuffer(bf)
-	bf.WriteUint32(uint32(len(b)))
-	_, e := s.conn.Write(bf.GetBytes())
+	s.cacheBuffer.Reset()
+	s.cacheBuffer.WriteUint32(uint32(len(b)))
+	_, e := s.conn.Write(s.cacheBuffer.GetBytes())
 	if e != nil {
 		return e
 	}
