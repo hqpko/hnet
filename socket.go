@@ -1,14 +1,13 @@
 package hnet
 
 import (
+	"errors"
 	"net"
 	"sync"
-
-	"errors"
-
 	"time"
 
 	"github.com/hqpko/hbuffer"
+	"github.com/hqpko/hconcurrent"
 	"github.com/hqpko/hpool"
 )
 
@@ -28,6 +27,8 @@ type Socket struct {
 	readTimeoutDuration  time.Duration
 	writeTimeoutDuration time.Duration
 	cacheBuffer          *hbuffer.Buffer
+	bufferChannel        *hconcurrent.Concurrent
+	writeErrHandler      func(writeErr error)
 }
 
 func NewSocket(c net.Conn) *Socket {
@@ -43,6 +44,21 @@ func NewSocket(c net.Conn) *Socket {
 
 func (s *Socket) SetBufferPool(p *hpool.Pool) {
 	s.bufferPool = p
+}
+
+func (s *Socket) SetBuffer(bufferSize int, writeErrHandler func(writeErr error)) {
+	s.writeErrHandler = writeErrHandler
+	s.bufferChannel = hconcurrent.NewConcurrent(bufferSize, 1, s.writeFromBuffer)
+	s.bufferChannel.Run()
+}
+
+func (s *Socket) writeFromBuffer(i interface{}) interface{} {
+	if b, ok := i.([]byte); ok {
+		if e := s.Write(b); e != nil && s.writeErrHandler != nil {
+			s.writeErrHandler(e)
+		}
+	}
+	return nil
 }
 
 func (s *Socket) SetMaxReadingBytesSize(size uint32) {
@@ -100,25 +116,24 @@ func (s *Socket) Write(b []byte) error {
 
 	s.cacheBuffer.Reset()
 	s.cacheBuffer.WriteUint32(uint32(len(b)))
+
+	//////////////////////////
+	// todo,write with cache buffer
+	//s.cacheBuffer.WriteBytes(b)
+	//_, e := s.conn.Write(s.cacheBuffer.GetBytes())
+	//////////////////////////
 	_, e := s.conn.Write(s.cacheBuffer.GetBytes())
 	if e != nil {
 		return e
 	}
 	_, e = s.conn.Write(b)
+	//////////////////////////
+
 	return e
 }
 
-//WriteWithBuffer default with bytes size
-func (s *Socket) WriteWithBuffer(b *hbuffer.Buffer) error {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	if e := s.SetWriteDeadline(time.Now().Add(s.writeTimeoutDuration)); e != nil {
-		return e
-	}
-
-	_, e := s.conn.Write(b.GetBytes())
-	return e
+func (s *Socket) Write2Buffer(b []byte) bool {
+	return s.bufferChannel.Input(b)
 }
 
 func (s *Socket) read(b *hbuffer.Buffer) (*hbuffer.Buffer, error) {
@@ -159,6 +174,9 @@ func (s *Socket) SetWriteDeadline(t time.Time) error {
 }
 
 func (s *Socket) Close() error {
+	if s.bufferChannel != nil {
+		s.bufferChannel.Destroy()
+	}
 	return s.conn.Close()
 }
 
