@@ -100,15 +100,12 @@ func (s *Socket) Write(b []byte) error {
 
 	s.cacheBuffer.Reset()
 	s.cacheBuffer.WriteUint32(uint32(len(b)))
+	s.cacheBuffer.WriteBytes(b)
 	_, e := s.conn.Write(s.cacheBuffer.GetBytes())
-	if e != nil {
-		return e
-	}
-	_, e = s.conn.Write(b)
 	return e
 }
 
-//WriteWithBuffer default with bytes size
+// WriteWithBuffer default with bytes size
 func (s *Socket) WriteWithBuffer(b *hbuffer.Buffer) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
