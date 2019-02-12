@@ -24,7 +24,7 @@ type Socket struct {
 	conn                 net.Conn
 	maxReadingBytesSize  uint32
 	maxBufferSizeInPool  uint64
-	bufferPool           *hpool.Pool
+	bufferPool           *hpool.BufferPool
 	readTimeoutDuration  time.Duration
 	writeTimeoutDuration time.Duration
 	cacheBuffer          *hbuffer.Buffer
@@ -41,7 +41,7 @@ func NewSocket(c net.Conn) *Socket {
 	}
 }
 
-func (s *Socket) SetBufferPool(p *hpool.Pool) {
+func (s *Socket) SetBufferPool(p *hpool.BufferPool) {
 	s.bufferPool = p
 }
 
@@ -161,7 +161,7 @@ func (s *Socket) Close() error {
 
 func (s *Socket) getBuffer() *hbuffer.Buffer {
 	if s.bufferPool != nil {
-		return s.bufferPool.Get().(*hbuffer.Buffer)
+		return s.bufferPool.Get()
 	}
 	return hbuffer.NewBuffer()
 }

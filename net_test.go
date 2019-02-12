@@ -10,20 +10,13 @@ import (
 
 func TestNet(t *testing.T) {
 	network := "tcp"
-	addr := "127.0.0.1:8099"
+	addr := "127.0.0.1:10033"
 	msg := "hello socket!"
 	w := &sync.WaitGroup{}
 	w.Add(1)
 
 	maxBufferSizeInPool := 1 << 10
-	pool := hpool.NewPool(func() interface{} {
-		return hbuffer.NewBuffer()
-	}, 1<<4)
-	pool.SetDebug(true)
-	pool.SetPutChecker(func(i interface{}) bool {
-		b := i.(*hbuffer.Buffer)
-		return b.Cap() > maxBufferSizeInPool
-	})
+	pool := hpool.NewBufferPool(1<<4, maxBufferSizeInPool)
 
 	go func() {
 		checkTestErr(
