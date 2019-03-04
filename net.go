@@ -40,7 +40,7 @@ func Connect(network, addr string) (net.Conn, error) {
 
 func ListenSocket(network, addr string, callback func(socket *Socket)) error {
 	return Listen(network, addr, func(conn net.Conn) {
-		callback(NewSocket(conn))
+		callback(NewSocket(conn, NewOption()))
 	})
 }
 
@@ -49,7 +49,7 @@ func ConnectSocket(network, addr string) (*Socket, error) {
 	if e != nil {
 		return nil, e
 	}
-	return NewSocket(c), nil
+	return NewSocket(c, NewOption()), nil
 }
 
 func ListenKcpSocket(addr string, callback func(socket *Socket), funcInitKcp func(session *kcp.UDPSession)) error {
@@ -63,7 +63,7 @@ func ListenKcpSocket(addr string, callback func(socket *Socket), funcInitKcp fun
 			return err
 		}
 		funcInitKcp(kcpConn)
-		callback(NewSocket(kcpConn))
+		callback(NewSocket(kcpConn, NewOption()))
 	}
 }
 
@@ -73,5 +73,43 @@ func ConnectKcpSocket(addr string, funcInitKcp func(session *kcp.UDPSession)) (*
 		return nil, err
 	}
 	funcInitKcp(kcpConn)
-	return NewSocket(kcpConn), nil
+	return NewSocket(kcpConn, NewOption()), nil
+}
+
+func ListenSocketWithOption(network, addr string, callback func(socket *Socket), option *Option) error {
+	return Listen(network, addr, func(conn net.Conn) {
+		callback(NewSocket(conn, option))
+	})
+}
+
+func ConnectSocketWithOption(network, addr string, option *Option) (*Socket, error) {
+	c, e := net.Dial(network, addr)
+	if e != nil {
+		return nil, e
+	}
+	return NewSocket(c, option), nil
+}
+
+func ListenKcpSocketWithOption(addr string, callback func(socket *Socket), funcInitKcp func(session *kcp.UDPSession), option *Option) error {
+	listener, err := kcp.ListenWithOptions(addr, nil, 0, 0)
+	if err != nil {
+		return err
+	}
+	for {
+		kcpConn, err := listener.AcceptKCP()
+		if err != nil {
+			return err
+		}
+		funcInitKcp(kcpConn)
+		callback(NewSocket(kcpConn, option))
+	}
+}
+
+func ConnectKcpSocketWithOption(addr string, funcInitKcp func(session *kcp.UDPSession), option *Option) (*Socket, error) {
+	kcpConn, err := kcp.DialWithOptions(addr, nil, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	funcInitKcp(kcpConn)
+	return NewSocket(kcpConn, option), nil
 }

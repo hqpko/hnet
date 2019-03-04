@@ -17,22 +17,20 @@ func TestNet(t *testing.T) {
 
 	maxBufferSizeInPool := 1 << 10
 	pool := hpool.NewBufferPool(1<<4, maxBufferSizeInPool)
-
+	handlerGetBuffer := func() *hbuffer.Buffer { return pool.Get() }
+	handlerPutBuffer := func(buffer *hbuffer.Buffer) { pool.Put(buffer) }
+	option := NewOption().HandlerGetBuffer(handlerGetBuffer).HandlerPutBuffer(handlerPutBuffer)
 	go func() {
 		checkTestErr(
-			ListenSocket(network,
-				addr,
-				func(s *Socket) {
-					s.SetBufferPool(pool)
-					s.Write([]byte(msg))
-				}),
+			ListenSocketWithOption(
+				network, addr,
+				func(s *Socket) { s.Write([]byte(msg)) },
+				option),
 			t, w)
 	}()
 	go func() {
-		s, e := ConnectSocket(network, addr)
+		s, e := ConnectSocketWithOption(network, addr, option)
 		checkTestErr(e, t, w)
-		s.SetBufferPool(pool)
-		s.SetMaxReadingBytesSize(1 << 10)
 		checkTestErr(
 			s.ReadWithCallback(func(b *hbuffer.Buffer) {
 				receiveMsg := string(b.GetRestOfBytes())

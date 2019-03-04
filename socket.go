@@ -9,12 +9,6 @@ import (
 	"time"
 
 	"github.com/hqpko/hbuffer"
-	"github.com/hqpko/hpool"
-)
-
-const (
-	defMaxReadingBytesSize = 1 << 10 //1k
-	defTimeoutDuration     = 8 * time.Second
 )
 
 var ErrOverMaxReadingSize = errors.New("over max reading size")
@@ -23,68 +17,41 @@ type Socket struct {
 	lock                 *sync.Mutex
 	conn                 net.Conn
 	maxReadingBytesSize  uint32
-	maxBufferSizeInPool  uint64
-	bufferPool           *hpool.BufferPool
 	readTimeoutDuration  time.Duration
 	writeTimeoutDuration time.Duration
+	handlerGetBuffer     func() *hbuffer.Buffer
+	handlerPutBuffer     func(buffer *hbuffer.Buffer)
 	cacheBuffer          *hbuffer.Buffer
 }
 
-func NewSocket(c net.Conn) *Socket {
+func NewSocket(conn net.Conn, option *Option) *Socket {
 	return &Socket{
 		lock:                 &sync.Mutex{},
-		conn:                 c,
-		maxReadingBytesSize:  defMaxReadingBytesSize,
-		readTimeoutDuration:  defTimeoutDuration,
-		writeTimeoutDuration: defTimeoutDuration,
+		conn:                 conn,
+		maxReadingBytesSize:  option.maxReadingByteSize,
+		readTimeoutDuration:  option.readTimeoutDuration,
+		writeTimeoutDuration: option.writeTimeoutDuration,
+		handlerGetBuffer:     option.handlerGetBuffer,
+		handlerPutBuffer:     option.handlerPutBuffer,
 		cacheBuffer:          hbuffer.NewBuffer(),
 	}
 }
 
-func (s *Socket) SetBufferPool(p *hpool.BufferPool) {
-	s.bufferPool = p
-}
-
-func (s *Socket) SetMaxReadingBytesSize(size uint32) {
-	s.maxReadingBytesSize = size
-}
-
-func (s *Socket) SetTimeoutDuration(d time.Duration) {
-	s.readTimeoutDuration = d
-	s.writeTimeoutDuration = d
-}
-
-func (s *Socket) SetReadTimeoutDuration(d time.Duration) {
-	s.readTimeoutDuration = d
-}
-
-func (s *Socket) SetWriteTimeoutDuration(d time.Duration) {
-	s.writeTimeoutDuration = d
-}
-
 func (s *Socket) ReadWithCallback(callback func(*hbuffer.Buffer)) error {
 	for {
-		b, e := s.read(s.getBuffer())
+		b, e := s.read(s.handlerGetBuffer())
 		if e != nil {
-			s.putBuffer(b)
+			s.handlerPutBuffer(b)
 			return e
 		}
 		callback(b)
 	}
 }
 
-func (s *Socket) ReadWithChan(c chan *hbuffer.Buffer) error {
-	return s.ReadWithCallback(
-		func(b *hbuffer.Buffer) {
-			c <- b
-		},
-	)
-}
-
 func (s *Socket) ReadOne() (*hbuffer.Buffer, error) {
-	b, e := s.read(s.getBuffer())
+	b, e := s.read(s.handlerGetBuffer())
 	if e != nil {
-		s.putBuffer(b)
+		s.handlerPutBuffer(b)
 		return nil, e
 	}
 	return b, nil
@@ -157,17 +124,4 @@ func (s *Socket) SetWriteDeadline(t time.Time) error {
 
 func (s *Socket) Close() error {
 	return s.conn.Close()
-}
-
-func (s *Socket) getBuffer() *hbuffer.Buffer {
-	if s.bufferPool != nil {
-		return s.bufferPool.Get()
-	}
-	return hbuffer.NewBuffer()
-}
-
-func (s *Socket) putBuffer(bf *hbuffer.Buffer) {
-	if s.bufferPool != nil {
-		s.bufferPool.Put(bf)
-	}
 }
