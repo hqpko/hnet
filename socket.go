@@ -2,7 +2,6 @@ package hnet
 
 import (
 	"net"
-	"sync"
 
 	"errors"
 
@@ -14,7 +13,6 @@ import (
 var ErrOverMaxReadingSize = errors.New("over max reading size")
 
 type Socket struct {
-	lock                 *sync.Mutex
 	conn                 net.Conn
 	maxReadingBytesSize  uint32
 	readTimeoutDuration  time.Duration
@@ -26,7 +24,6 @@ type Socket struct {
 
 func NewSocket(conn net.Conn, option *Option) *Socket {
 	return &Socket{
-		lock:                 &sync.Mutex{},
 		conn:                 conn,
 		maxReadingBytesSize:  option.maxReadingByteSize,
 		readTimeoutDuration:  option.readTimeoutDuration,
@@ -58,9 +55,6 @@ func (s *Socket) ReadOne() (*hbuffer.Buffer, error) {
 }
 
 func (s *Socket) Write(b []byte) error {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	if e := s.SetWriteDeadline(time.Now().Add(s.writeTimeoutDuration)); e != nil {
 		return e
 	}
