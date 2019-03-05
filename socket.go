@@ -72,19 +72,6 @@ func (s *Socket) Write(b []byte) error {
 	return e
 }
 
-// WriteWithBuffer default with bytes size
-func (s *Socket) WriteWithBuffer(b *hbuffer.Buffer) error {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	if e := s.SetWriteDeadline(time.Now().Add(s.writeTimeoutDuration)); e != nil {
-		return e
-	}
-
-	_, e := s.conn.Write(b.GetBytes())
-	return e
-}
-
 func (s *Socket) read(b *hbuffer.Buffer) (*hbuffer.Buffer, error) {
 	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
 		return b, e
