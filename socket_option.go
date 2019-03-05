@@ -2,8 +2,6 @@ package hnet
 
 import (
 	"time"
-
-	"github.com/hqpko/hbuffer"
 )
 
 const (
@@ -12,16 +10,16 @@ const (
 )
 
 var (
-	defHandlerGetBuffer = func() *hbuffer.Buffer { return hbuffer.NewBuffer() }
-	defHandlerPutBuffer = func(buffer *hbuffer.Buffer) {}
+// defHandlerGetBuffer = func() *hbuffer.Buffer { return hbuffer.NewBuffer() }
+// defHandlerPutBuffer = func(buffer *hbuffer.Buffer) {}
 )
 
 type Option struct {
 	maxReadingByteSize   uint32
 	readTimeoutDuration  time.Duration
 	writeTimeoutDuration time.Duration
-	handlerGetBuffer     func() *hbuffer.Buffer
-	handlerPutBuffer     func(buffer *hbuffer.Buffer)
+	// handlerGetBuffer     func() *hbuffer.Buffer
+	// handlerPutBuffer     func(buffer *hbuffer.Buffer)
 }
 
 func NewOption() *Option {
@@ -29,8 +27,8 @@ func NewOption() *Option {
 		maxReadingByteSize:   defMaxReadingByteSize,
 		readTimeoutDuration:  defTimeoutDuration,
 		writeTimeoutDuration: defTimeoutDuration,
-		handlerGetBuffer:     defHandlerGetBuffer,
-		handlerPutBuffer:     defHandlerPutBuffer,
+		// handlerGetBuffer:     defHandlerGetBuffer,
+		// handlerPutBuffer:     defHandlerPutBuffer,
 	}
 }
 
@@ -49,12 +47,13 @@ func (o *Option) WriteTimeoutDuration(timeoutDuration time.Duration) *Option {
 	return o
 }
 
-func (o *Option) HandlerGetBuffer(handler func() *hbuffer.Buffer) *Option {
-	o.handlerGetBuffer = handler
-	return o
-}
-
-func (o *Option) HandlerPutBuffer(handler func(*hbuffer.Buffer)) *Option {
-	o.handlerPutBuffer = handler
-	return o
-}
+//
+// func (o *Option) HandlerGetBuffer(handler func() *hbuffer.Buffer) *Option {
+// 	o.handlerGetBuffer = handler
+// 	return o
+// }
+//
+// func (o *Option) HandlerPutBuffer(handler func(*hbuffer.Buffer)) *Option {
+// 	o.handlerPutBuffer = handler
+// 	return o
+// }

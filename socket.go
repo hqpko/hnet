@@ -17,9 +17,10 @@ type Socket struct {
 	maxReadingBytesSize  uint32
 	readTimeoutDuration  time.Duration
 	writeTimeoutDuration time.Duration
+	readBuffer           *hbuffer.Buffer
+	writeBuffer          *hbuffer.Buffer
 	handlerGetBuffer     func() *hbuffer.Buffer
 	handlerPutBuffer     func(buffer *hbuffer.Buffer)
-	cacheBuffer          *hbuffer.Buffer
 }
 
 func NewSocket(conn net.Conn, option *Option) *Socket {
@@ -28,30 +29,35 @@ func NewSocket(conn net.Conn, option *Option) *Socket {
 		maxReadingBytesSize:  option.maxReadingByteSize,
 		readTimeoutDuration:  option.readTimeoutDuration,
 		writeTimeoutDuration: option.writeTimeoutDuration,
-		handlerGetBuffer:     option.handlerGetBuffer,
-		handlerPutBuffer:     option.handlerPutBuffer,
-		cacheBuffer:          hbuffer.NewBuffer(),
+		readBuffer:           hbuffer.NewBuffer(),
+		writeBuffer:          hbuffer.NewBuffer(),
+		// handlerGetBuffer:     option.handlerGetBuffer,
+		// handlerPutBuffer:     option.handlerPutBuffer,
 	}
 }
 
-func (s *Socket) ReadPacket(handlerPacket func(*hbuffer.Buffer)) error {
+func (s *Socket) ReadPacket(handlerPacket func(packet []byte)) error {
 	for {
-		b, e := s.read(s.handlerGetBuffer())
+		// b, e := s.read(s.handlerGetBuffer())
+		s.readBuffer.Reset()
+		b, e := s.read(s.readBuffer)
 		if e != nil {
-			s.handlerPutBuffer(b)
+			// s.handlerPutBuffer(b)
 			return e
 		}
-		handlerPacket(b)
+		handlerPacket(b.CopyRestOfBytes())
 	}
 }
 
-func (s *Socket) ReadOnePacket() (*hbuffer.Buffer, error) {
-	b, e := s.read(s.handlerGetBuffer())
+func (s *Socket) ReadOnePacket() ([]byte, error) {
+	// b, e := s.read(s.handlerGetBuffer())
+	s.readBuffer.Reset()
+	b, e := s.read(s.readBuffer)
 	if e != nil {
-		s.handlerPutBuffer(b)
+		// s.handlerPutBuffer(b)
 		return nil, e
 	}
-	return b, nil
+	return b.CopyRestOfBytes(), nil
 }
 
 func (s *Socket) WritePacket(b []byte) error {
@@ -59,27 +65,27 @@ func (s *Socket) WritePacket(b []byte) error {
 		return e
 	}
 
-	s.cacheBuffer.Reset()
-	s.cacheBuffer.WriteUint32(uint32(len(b)))
-	s.cacheBuffer.WriteBytes(b)
-	_, e := s.Write(s.cacheBuffer.GetBytes())
+	s.writeBuffer.Reset()
+	s.writeBuffer.WriteUint32(uint32(len(b)))
+	s.writeBuffer.WriteBytes(b)
+	_, e := s.Write(s.writeBuffer.GetBytes())
 	return e
 }
 
-func (s *Socket) read(b *hbuffer.Buffer) (*hbuffer.Buffer, error) {
+func (s *Socket) read(buffer *hbuffer.Buffer) (*hbuffer.Buffer, error) {
 	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
-		return b, e
+		return buffer, e
 	}
 
-	_, e := b.ReadFull(s, 4)
+	_, e := buffer.ReadFull(s, 4)
 	if e != nil {
-		return b, e
+		return buffer, e
 	}
-	l := b.ReadUint32()
+	l := buffer.ReadUint32()
 	if l > s.maxReadingBytesSize {
-		return b, ErrOverMaxReadingSize
+		return buffer, ErrOverMaxReadingSize
 	}
-	b.Reset()
-	_, e = b.ReadFull(s, uint64(l))
-	return b, e
+	buffer.Reset()
+	_, e = buffer.ReadFull(s, uint64(l))
+	return buffer, e
 }

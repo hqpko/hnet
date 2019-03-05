@@ -3,8 +3,6 @@ package hnet
 import (
 	"sync"
 	"testing"
-
-	"github.com/hqpko/hbuffer"
 )
 
 func TestSocket(t *testing.T) {
@@ -25,8 +23,8 @@ func TestSocket(t *testing.T) {
 		if checkTestErr(e, t, w) != nil {
 			return
 		}
-		e = s.ReadPacket(func(buffer *hbuffer.Buffer) {
-			receiveMsg := string(buffer.GetBytes())
+		e = s.ReadPacket(func(packet []byte) {
+			receiveMsg := string(packet)
 			if receiveMsg != msg {
 				t.Errorf("reading error msg:%s", receiveMsg)
 			}
