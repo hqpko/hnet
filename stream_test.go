@@ -15,30 +15,27 @@ func TestStream(t *testing.T) {
 	w.Add(1)
 
 	go func() {
-		checkTestErr(
-			ListenSocket(
-				network, addr,
-				func(s *Socket) {
-					stream := NewStream(s, 16, func(err error) {
-						t.Error(err)
-					})
-					stream.MustInput([]byte(msg))
-				},
-				NewOption()),
-			t, w)
+		e := ListenSocket(network, addr, func(socket *Socket) {
+			stream := NewStream(socket, 16, func(err error) {
+				t.Error(err)
+			})
+			stream.MustInput([]byte(msg))
+		}, NewOption())
+		_ = checkTestErr(e, t, w)
 	}()
 	go func() {
 		s, e := ConnectSocket(network, addr, NewOption())
-		checkTestErr(e, t, w)
-		checkTestErr(
-			s.ReadWithCallback(func(b *hbuffer.Buffer) {
-				receiveMsg := string(b.GetRestOfBytes())
-				if receiveMsg != msg {
-					t.Errorf("reading error msg:%s", receiveMsg)
-				}
-				w.Done()
-			}),
-			t, w)
+		if checkTestErr(e, t, w) != nil {
+			return
+		}
+		e = s.ReadPacket(func(buffer *hbuffer.Buffer) {
+			receiveMsg := string(buffer.GetBytes())
+			if receiveMsg != msg {
+				t.Errorf("reading error msg:%s", receiveMsg)
+			}
+			w.Done()
+		})
+		_ = checkTestErr(e, t, w)
 	}()
 	w.Wait()
 }

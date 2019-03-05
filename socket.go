@@ -13,7 +13,7 @@ import (
 var ErrOverMaxReadingSize = errors.New("over max reading size")
 
 type Socket struct {
-	conn                 net.Conn
+	net.Conn
 	maxReadingBytesSize  uint32
 	readTimeoutDuration  time.Duration
 	writeTimeoutDuration time.Duration
@@ -24,7 +24,7 @@ type Socket struct {
 
 func NewSocket(conn net.Conn, option *Option) *Socket {
 	return &Socket{
-		conn:                 conn,
+		Conn:                 conn,
 		maxReadingBytesSize:  option.maxReadingByteSize,
 		readTimeoutDuration:  option.readTimeoutDuration,
 		writeTimeoutDuration: option.writeTimeoutDuration,
@@ -34,18 +34,18 @@ func NewSocket(conn net.Conn, option *Option) *Socket {
 	}
 }
 
-func (s *Socket) ReadWithCallback(callback func(*hbuffer.Buffer)) error {
+func (s *Socket) ReadPacket(handlerPacket func(*hbuffer.Buffer)) error {
 	for {
 		b, e := s.read(s.handlerGetBuffer())
 		if e != nil {
 			s.handlerPutBuffer(b)
 			return e
 		}
-		callback(b)
+		handlerPacket(b)
 	}
 }
 
-func (s *Socket) ReadOne() (*hbuffer.Buffer, error) {
+func (s *Socket) ReadOnePacket() (*hbuffer.Buffer, error) {
 	b, e := s.read(s.handlerGetBuffer())
 	if e != nil {
 		s.handlerPutBuffer(b)
@@ -54,7 +54,7 @@ func (s *Socket) ReadOne() (*hbuffer.Buffer, error) {
 	return b, nil
 }
 
-func (s *Socket) Write(b []byte) error {
+func (s *Socket) WritePacket(b []byte) error {
 	if e := s.SetWriteDeadline(time.Now().Add(s.writeTimeoutDuration)); e != nil {
 		return e
 	}
@@ -62,7 +62,7 @@ func (s *Socket) Write(b []byte) error {
 	s.cacheBuffer.Reset()
 	s.cacheBuffer.WriteUint32(uint32(len(b)))
 	s.cacheBuffer.WriteBytes(b)
-	_, e := s.conn.Write(s.cacheBuffer.GetBytes())
+	_, e := s.Write(s.cacheBuffer.GetBytes())
 	return e
 }
 
@@ -71,7 +71,7 @@ func (s *Socket) read(b *hbuffer.Buffer) (*hbuffer.Buffer, error) {
 		return b, e
 	}
 
-	_, e := b.ReadFull(s.conn, 4)
+	_, e := b.ReadFull(s, 4)
 	if e != nil {
 		return b, e
 	}
@@ -80,30 +80,6 @@ func (s *Socket) read(b *hbuffer.Buffer) (*hbuffer.Buffer, error) {
 		return b, ErrOverMaxReadingSize
 	}
 	b.Reset()
-	_, e = b.ReadFull(s.conn, uint64(l))
+	_, e = b.ReadFull(s, uint64(l))
 	return b, e
-}
-
-func (s *Socket) LocalAddr() net.Addr {
-	return s.conn.LocalAddr()
-}
-
-func (s *Socket) RemoteAddr() net.Addr {
-	return s.conn.RemoteAddr()
-}
-
-func (s *Socket) SetDeadline(t time.Time) error {
-	return s.conn.SetDeadline(t)
-}
-
-func (s *Socket) SetReadDeadline(t time.Time) error {
-	return s.conn.SetReadDeadline(t)
-}
-
-func (s *Socket) SetWriteDeadline(t time.Time) error {
-	return s.conn.SetWriteDeadline(t)
-}
-
-func (s *Socket) Close() error {
-	return s.conn.Close()
 }

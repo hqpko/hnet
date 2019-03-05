@@ -27,7 +27,7 @@ func (s *Stream) MustInput(b []byte) {
 
 func (s *Stream) handlerWrite(i interface{}) interface{} {
 	if b, ok := i.([]byte); ok {
-		if err := s.socket.Write(b); err != nil {
+		if err := s.socket.WritePacket(b); err != nil {
 			s.handlerWriteError(err)
 		}
 	}

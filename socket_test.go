@@ -16,7 +16,7 @@ func TestSocket(t *testing.T) {
 
 	go func() {
 		e := ListenSocket(network, addr, func(socket *Socket) {
-			_ = socket.Write([]byte(msg))
+			_ = socket.WritePacket([]byte(msg))
 		}, NewOption())
 		_ = checkTestErr(e, t, w)
 	}()
@@ -25,7 +25,7 @@ func TestSocket(t *testing.T) {
 		if checkTestErr(e, t, w) != nil {
 			return
 		}
-		e = s.ReadWithCallback(func(buffer *hbuffer.Buffer) {
+		e = s.ReadPacket(func(buffer *hbuffer.Buffer) {
 			receiveMsg := string(buffer.GetBytes())
 			if receiveMsg != msg {
 				t.Errorf("reading error msg:%s", receiveMsg)
