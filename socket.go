@@ -98,6 +98,7 @@ func (s *Socket) read(b *hbuffer.Buffer) (*hbuffer.Buffer, error) {
 	if l > s.maxReadingBytesSize {
 		return b, ErrOverMaxReadingSize
 	}
+	b.Reset()
 	_, e = b.ReadFull(s.conn, uint64(l))
 	return b, e
 }

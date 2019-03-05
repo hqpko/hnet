@@ -15,32 +15,32 @@ func TestSocket(t *testing.T) {
 	w.Add(1)
 
 	go func() {
-		checkTestErr(
-			ListenSocket(
-				network, addr,
-				func(s *Socket) { s.Write([]byte(msg)) },
-				NewOption()),
-			t, w)
+		e := ListenSocket(network, addr, func(socket *Socket) {
+			_ = socket.Write([]byte(msg))
+		}, NewOption())
+		_ = checkTestErr(e, t, w)
 	}()
 	go func() {
 		s, e := ConnectSocket(network, addr, NewOption())
-		checkTestErr(e, t, w)
-		checkTestErr(
-			s.ReadWithCallback(func(b *hbuffer.Buffer) {
-				receiveMsg := string(b.GetRestOfBytes())
-				if receiveMsg != msg {
-					t.Errorf("reading error msg:%s", receiveMsg)
-				}
-				w.Done()
-			}),
-			t, w)
+		if checkTestErr(e, t, w) != nil {
+			return
+		}
+		e = s.ReadWithCallback(func(buffer *hbuffer.Buffer) {
+			receiveMsg := string(buffer.GetBytes())
+			if receiveMsg != msg {
+				t.Errorf("reading error msg:%s", receiveMsg)
+			}
+			w.Done()
+		})
+		_ = checkTestErr(e, t, w)
 	}()
 	w.Wait()
 }
 
-func checkTestErr(e error, t *testing.T, w *sync.WaitGroup) {
+func checkTestErr(e error, t *testing.T, w *sync.WaitGroup) error {
 	if e != nil {
 		w.Done()
 		t.Errorf(e.Error())
 	}
+	return e
 }
