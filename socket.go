@@ -72,6 +72,23 @@ func (s *Socket) WritePacket(b []byte) error {
 	return e
 }
 
+func (s *Socket) writePacket2(b []byte) error {
+	if e := s.SetWriteDeadline(time.Now().Add(s.writeTimeoutDuration)); e != nil {
+		return e
+	}
+
+	s.writeBuffer.Reset()
+	s.writeBuffer.WriteUint32(uint32(len(b)))
+	if _, e := s.Write(s.writeBuffer.GetBytes()); e != nil {
+		return e
+	}
+
+	s.writeBuffer.Reset()
+	s.writeBuffer.WriteBytes(b)
+	_, e := s.Write(s.writeBuffer.GetBytes())
+	return e
+}
+
 func (s *Socket) read(buffer *hbuffer.Buffer) (*hbuffer.Buffer, error) {
 	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
 		return buffer, e

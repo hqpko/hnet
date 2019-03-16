@@ -1,44 +1,79 @@
 package hnet
 
 import (
+	"fmt"
+	"math/rand"
 	"sync"
 	"testing"
+	"time"
 )
+
+func BenchmarkSocket_WritePacket(b *testing.B) {
+	network := "tcp"
+	addr := testGetAddr()
+	go func() {
+		_ = ListenSocket(network, addr, func(socket *Socket) {
+			_ = socket.ReadPacket(func(packet []byte) {})
+		}, NewOption())
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+	s, e := ConnectSocket(network, addr, NewOption())
+	if e != nil {
+		b.Fatal(e)
+	}
+	packet := []byte{0, 1, 2, 3, 4, 5, 6, 7}
+	for i := 0; i < b.N; i++ {
+		_ = s.WritePacket(packet)
+	}
+}
+
+func BenchmarkSocket_WritePacket2(b *testing.B) {
+	network := "tcp"
+	addr := testGetAddr()
+	go func() {
+		_ = ListenSocket(network, addr, func(socket *Socket) {
+			_ = socket.ReadPacket(func(packet []byte) {})
+		}, NewOption())
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+	s, _ := ConnectSocket(network, addr, NewOption())
+	packet := []byte{0, 1, 2, 3, 4, 5, 6, 7}
+	for i := 0; i < b.N; i++ {
+		_ = s.writePacket2(packet)
+	}
+}
 
 func TestSocket(t *testing.T) {
 	network := "tcp"
-	addr := "127.0.0.1:10033"
+	addr := testGetAddr()
 	msg := "hello socket!"
 	w := &sync.WaitGroup{}
 	w.Add(1)
 
 	go func() {
-		e := ListenSocket(network, addr, func(socket *Socket) {
+		_ = ListenSocket(network, addr, func(socket *Socket) {
 			_ = socket.WritePacket([]byte(msg))
 		}, NewOption())
-		_ = checkTestErr(e, t, w)
 	}()
-	go func() {
-		s, e := ConnectSocket(network, addr, NewOption())
-		if checkTestErr(e, t, w) != nil {
-			return
+
+	time.Sleep(100 * time.Millisecond)
+	s, e := ConnectSocket(network, addr, NewOption())
+	if e != nil {
+		t.Fatal(e)
+	}
+	_ = s.ReadPacket(func(packet []byte) {
+		receiveMsg := string(packet)
+		if receiveMsg != msg {
+			t.Errorf("reading error msg:%s", receiveMsg)
 		}
-		e = s.ReadPacket(func(packet []byte) {
-			receiveMsg := string(packet)
-			if receiveMsg != msg {
-				t.Errorf("reading error msg:%s", receiveMsg)
-			}
-			w.Done()
-		})
-		_ = checkTestErr(e, t, w)
-	}()
-	w.Wait()
+		_ = s.Close()
+	})
 }
 
-func checkTestErr(e error, t *testing.T, w *sync.WaitGroup) error {
-	if e != nil {
-		w.Done()
-		t.Errorf(e.Error())
-	}
-	return e
+func testGetAddr() string {
+	rand.Seed(time.Now().UnixNano())
+	addr := fmt.Sprintf("127.0.0.1:%d", 10000+rand.Int31n(3000))
+	return addr
 }
