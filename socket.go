@@ -67,6 +67,10 @@ func (s *Socket) ReadOnePacket() ([]byte, error) {
 	return s.readBuffer.CopyRestOfBytes(), nil
 }
 
+func (s *Socket) ReadOneBuffer(buffer *hbuffer.Buffer) error {
+	return s.read(buffer)
+}
+
 func (s *Socket) WritePacket(b []byte) error {
 	s.writeBuffer.Reset()
 	s.writeBuffer.WriteUint32(uint32(len(b)))
