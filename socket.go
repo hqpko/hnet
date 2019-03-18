@@ -103,10 +103,9 @@ func (s *Socket) read(buffer *hbuffer.Buffer) error {
 
 	if l, e := s.readPacketLen(buffer); e != nil {
 		return e
+	} else if l > s.maxReadingBytesSize {
+		return ErrOverMaxReadingSize
 	} else {
-		if l > s.maxReadingBytesSize {
-			return ErrOverMaxReadingSize
-		}
 		buffer.Reset()
 		_, e = buffer.ReadFull(s, int(l))
 		return e
