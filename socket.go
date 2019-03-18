@@ -1,10 +1,8 @@
 package hnet
 
 import (
-	"net"
-
 	"errors"
-
+	"net"
 	"time"
 
 	"github.com/hqpko/hbuffer"
@@ -40,24 +38,33 @@ func (s *Socket) ReadPacket(handlerPacket func(packet []byte)) error {
 	for {
 		// b, e := s.read(s.handlerGetBuffer())
 		s.readBuffer.Reset()
-		b, e := s.read(s.readBuffer)
-		if e != nil {
+		if e := s.read(s.readBuffer); e != nil {
 			// s.handlerPutBuffer(b)
 			return e
 		}
-		handlerPacket(b.CopyRestOfBytes())
+		handlerPacket(s.readBuffer.CopyRestOfBytes())
+	}
+}
+
+func (s *Socket) ReadBuffer(handlerBuffer func(buffer *hbuffer.Buffer), handlerGetBuffer func() *hbuffer.Buffer) error {
+	for {
+		buffer := handlerGetBuffer()
+		if e := s.read(buffer); e != nil {
+			// s.handlerPutBuffer(b)
+			return e
+		}
+		handlerBuffer(buffer)
 	}
 }
 
 func (s *Socket) ReadOnePacket() ([]byte, error) {
 	// b, e := s.read(s.handlerGetBuffer())
 	s.readBuffer.Reset()
-	b, e := s.read(s.readBuffer)
-	if e != nil {
+	if e := s.read(s.readBuffer); e != nil {
 		// s.handlerPutBuffer(b)
 		return nil, e
 	}
-	return b.CopyRestOfBytes(), nil
+	return s.readBuffer.CopyRestOfBytes(), nil
 }
 
 func (s *Socket) WritePacket(b []byte) error {
@@ -92,20 +99,20 @@ func (s *Socket) writePacket2(b []byte) error {
 	return e
 }
 
-func (s *Socket) read(buffer *hbuffer.Buffer) (*hbuffer.Buffer, error) {
+func (s *Socket) read(buffer *hbuffer.Buffer) error {
 	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
-		return buffer, e
+		return e
 	}
 
 	if l, e := s.readPacketLen(buffer); e != nil {
-		return buffer, e
+		return e
 	} else {
 		if l > s.maxReadingBytesSize {
-			return buffer, ErrOverMaxReadingSize
+			return ErrOverMaxReadingSize
 		}
 		buffer.Reset()
 		_, e = buffer.ReadFull(s, int(l))
-		return buffer, e
+		return e
 	}
 }
 
