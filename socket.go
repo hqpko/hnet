@@ -29,17 +29,13 @@ func NewSocket(conn net.Conn, option *Option) *Socket {
 		writeTimeoutDuration: option.writeTimeoutDuration,
 		readBuffer:           hbuffer.NewBuffer(),
 		writeBuffer:          hbuffer.NewBuffer(),
-		// handlerGetBuffer:     option.handlerGetBuffer,
-		// handlerPutBuffer:     option.handlerPutBuffer,
 	}
 }
 
 func (s *Socket) ReadPacket(handlerPacket func(packet []byte)) error {
 	for {
-		// b, e := s.read(s.handlerGetBuffer())
 		s.readBuffer.Reset()
 		if e := s.read(s.readBuffer); e != nil {
-			// s.handlerPutBuffer(b)
 			return e
 		}
 		handlerPacket(s.readBuffer.CopyRestOfBytes())
@@ -50,7 +46,6 @@ func (s *Socket) ReadBuffer(handlerBuffer func(buffer *hbuffer.Buffer), handlerG
 	for {
 		buffer := handlerGetBuffer()
 		if e := s.read(buffer); e != nil {
-			// s.handlerPutBuffer(b)
 			return e
 		}
 		handlerBuffer(buffer)
@@ -58,10 +53,8 @@ func (s *Socket) ReadBuffer(handlerBuffer func(buffer *hbuffer.Buffer), handlerG
 }
 
 func (s *Socket) ReadOnePacket() ([]byte, error) {
-	// b, e := s.read(s.handlerGetBuffer())
 	s.readBuffer.Reset()
 	if e := s.read(s.readBuffer); e != nil {
-		// s.handlerPutBuffer(b)
 		return nil, e
 	}
 	return s.readBuffer.CopyRestOfBytes(), nil
