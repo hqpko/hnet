@@ -61,14 +61,17 @@ func (s *Socket) ReadOnePacket() ([]byte, error) {
 }
 
 func (s *Socket) WritePacket(b []byte) error {
-	if e := s.SetWriteDeadline(time.Now().Add(s.writeTimeoutDuration)); e != nil {
-		return e
-	}
-
 	s.writeBuffer.Reset()
 	s.writeBuffer.WriteUint32(uint32(len(b)))
 	s.writeBuffer.WriteBytes(b)
-	_, e := s.Write(s.writeBuffer.GetBytes())
+	return s.WriteBuffer(s.writeBuffer)
+}
+
+func (s *Socket) WriteBuffer(buffer *hbuffer.Buffer) error {
+	if e := s.SetWriteDeadline(time.Now().Add(s.writeTimeoutDuration)); e != nil {
+		return e
+	}
+	_, e := s.Write(buffer.GetBytes())
 	return e
 }
 
