@@ -14,7 +14,7 @@ var ErrOverMaxReadingSize = errors.New("over max reading size")
 
 type Socket struct {
 	net.Conn
-	maxReadingBytesSize  uint32
+	maxReadingBytesSize  int
 	readTimeoutDuration  time.Duration
 	writeTimeoutDuration time.Duration
 	readBuffer           *hbuffer.Buffer
@@ -94,15 +94,33 @@ func (s *Socket) read(buffer *hbuffer.Buffer) (*hbuffer.Buffer, error) {
 		return buffer, e
 	}
 
-	_, e := buffer.ReadFull(s, 4)
-	if e != nil {
+	if l, e := s.readPacketLen(buffer); e != nil {
+		return buffer, e
+	} else {
+		if l > s.maxReadingBytesSize {
+			return buffer, ErrOverMaxReadingSize
+		}
+		buffer.Reset()
+		_, e = buffer.ReadFull(s, int(l))
 		return buffer, e
 	}
-	l := buffer.ReadUint32()
-	if l > s.maxReadingBytesSize {
-		return buffer, ErrOverMaxReadingSize
+}
+
+func (s *Socket) readPacketLen(buffer *hbuffer.Buffer) (int, error) {
+	p := buffer.GetPosition()
+	for {
+		if _, e := buffer.ReadFull(s, 1); e != nil {
+			return 0, e
+		}
+		if b, e := buffer.ReadByte(); e != nil {
+			return 0, e
+		} else if b >= 0x80 {
+			buffer.Back(1)
+		} else {
+			buffer.SetPosition(p)
+			break
+		}
 	}
-	buffer.Reset()
-	_, e = buffer.ReadFull(s, uint64(l))
-	return buffer, e
+	i, e := buffer.ReadUint32()
+	return int(i), e
 }

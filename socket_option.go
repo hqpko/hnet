@@ -15,7 +15,7 @@ var (
 )
 
 type Option struct {
-	maxReadingByteSize   uint32
+	maxReadingByteSize   int
 	readTimeoutDuration  time.Duration
 	writeTimeoutDuration time.Duration
 	// handlerGetBuffer     func() *hbuffer.Buffer
@@ -33,7 +33,7 @@ func NewOption() *Option {
 }
 
 func (o *Option) MaxReadingByteSize(maxSize uint32) *Option {
-	o.maxReadingByteSize = maxSize
+	o.maxReadingByteSize = int(maxSize)
 	return o
 }
 
