@@ -14,11 +14,11 @@ func BenchmarkSocket_WritePacket(b *testing.B) {
 	go func() {
 		_ = ListenSocket(network, addr, func(socket *Socket) {
 			_ = socket.ReadPacket(func(packet []byte) {})
-		}, NewOption())
+		}, DefaultOption)
 	}()
 
 	time.Sleep(100 * time.Millisecond)
-	s, e := ConnectSocket(network, addr, NewOption())
+	s, e := ConnectSocket(network, addr, DefaultOption)
 	if e != nil {
 		b.Fatal(e)
 	}
@@ -34,11 +34,11 @@ func BenchmarkSocket_WritePacket2(b *testing.B) {
 	go func() {
 		_ = ListenSocket(network, addr, func(socket *Socket) {
 			_ = socket.ReadPacket(func(packet []byte) {})
-		}, NewOption())
+		}, DefaultOption)
 	}()
 
 	time.Sleep(100 * time.Millisecond)
-	s, _ := ConnectSocket(network, addr, NewOption())
+	s, _ := ConnectSocket(network, addr, DefaultOption)
 	packet := []byte{0, 1, 2, 3, 4, 5, 6, 7}
 	for i := 0; i < b.N; i++ {
 		_ = s.writePacket2(packet)
@@ -55,11 +55,11 @@ func TestSocket(t *testing.T) {
 	go func() {
 		_ = ListenSocket(network, addr, func(socket *Socket) {
 			_ = socket.WritePacket([]byte(msg))
-		}, NewOption())
+		}, DefaultOption)
 	}()
 
 	time.Sleep(100 * time.Millisecond)
-	s, e := ConnectSocket(network, addr, NewOption())
+	s, e := ConnectSocket(network, addr, DefaultOption)
 	if e != nil {
 		t.Fatal(e)
 	}

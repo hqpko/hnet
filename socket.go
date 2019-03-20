@@ -21,12 +21,12 @@ type Socket struct {
 	handlerPutBuffer     func(buffer *hbuffer.Buffer)
 }
 
-func NewSocket(conn net.Conn, option *Option) *Socket {
+func NewSocket(conn net.Conn, option Option) *Socket {
 	return &Socket{
 		Conn:                 conn,
-		maxReadingBytesSize:  option.maxReadingByteSize,
-		readTimeoutDuration:  option.readTimeoutDuration,
-		writeTimeoutDuration: option.writeTimeoutDuration,
+		maxReadingBytesSize:  option.MaxReadingByteSize,
+		readTimeoutDuration:  option.ReadTimeoutDuration,
+		writeTimeoutDuration: option.WriteTimeoutDuration,
 		readBuffer:           hbuffer.NewBuffer(),
 		writeBuffer:          hbuffer.NewBuffer(),
 	}
