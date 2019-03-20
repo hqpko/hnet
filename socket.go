@@ -42,7 +42,14 @@ func (s *Socket) ReadPacket(handlerPacket func(packet []byte)) error {
 	}
 }
 
-func (s *Socket) ReadBuffer(handlerBuffer func(buffer *hbuffer.Buffer), handlerGetBuffer func() *hbuffer.Buffer) error {
+func (s *Socket) ReadBuffer(handlerBuffer func(buffer *hbuffer.Buffer), handlersGetBuffer ...func() *hbuffer.Buffer) error {
+	var handlerGetBuffer func() *hbuffer.Buffer
+	if len(handlersGetBuffer) > 0 {
+		handlerGetBuffer = handlersGetBuffer[0]
+	} else {
+		handlerGetBuffer = func() *hbuffer.Buffer { return hbuffer.NewBuffer() }
+	}
+
 	for {
 		buffer := handlerGetBuffer()
 		if e := s.read(buffer); e != nil {
