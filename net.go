@@ -38,21 +38,21 @@ func Connect(network, addr string) (net.Conn, error) {
 	return net.Dial(network, addr)
 }
 
-func ListenSocket(network, addr string, callback func(socket *Socket), option Option) error {
+func ListenSocket(network, addr string, callback func(socket *Socket)) error {
 	return Listen(network, addr, func(conn net.Conn) {
-		callback(NewSocket(conn, option))
+		callback(NewSocket(conn))
 	})
 }
 
-func ConnectSocket(network, addr string, option Option) (*Socket, error) {
+func ConnectSocket(network, addr string) (*Socket, error) {
 	c, e := net.Dial(network, addr)
 	if e != nil {
 		return nil, e
 	}
-	return NewSocket(c, option), nil
+	return NewSocket(c), nil
 }
 
-func ListenKcpSocket(addr string, callback func(socket *Socket), funcInitKcp func(session *kcp.UDPSession), option Option) error {
+func ListenKcpSocket(addr string, callback func(socket *Socket), funcInitKcp func(session *kcp.UDPSession)) error {
 	listener, err := kcp.ListenWithOptions(addr, nil, 0, 0)
 	if err != nil {
 		return err
@@ -63,15 +63,15 @@ func ListenKcpSocket(addr string, callback func(socket *Socket), funcInitKcp fun
 			return err
 		}
 		funcInitKcp(kcpConn)
-		callback(NewSocket(kcpConn, option))
+		callback(NewSocket(kcpConn))
 	}
 }
 
-func ConnectKcpSocket(addr string, funcInitKcp func(session *kcp.UDPSession), option Option) (*Socket, error) {
+func ConnectKcpSocket(addr string, funcInitKcp func(session *kcp.UDPSession)) (*Socket, error) {
 	kcpConn, err := kcp.DialWithOptions(addr, nil, 0, 0)
 	if err != nil {
 		return nil, err
 	}
 	funcInitKcp(kcpConn)
-	return NewSocket(kcpConn, option), nil
+	return NewSocket(kcpConn), nil
 }

@@ -10,6 +10,11 @@ import (
 
 var ErrOverMaxReadingSize = errors.New("over max reading size")
 
+const (
+	defMaxReadingByteSize = 1 << 26 // 64M
+	defTimeoutDuration    = 8 * time.Second
+)
+
 type Socket struct {
 	net.Conn
 	maxReadingBytesSize  int
@@ -21,15 +26,24 @@ type Socket struct {
 	handlerPutBuffer     func(buffer *hbuffer.Buffer)
 }
 
-func NewSocket(conn net.Conn, option Option) *Socket {
+func NewSocket(conn net.Conn) *Socket {
 	return &Socket{
 		Conn:                 conn,
-		maxReadingBytesSize:  option.MaxReadingByteSize,
-		readTimeoutDuration:  option.ReadTimeoutDuration,
-		writeTimeoutDuration: option.WriteTimeoutDuration,
+		maxReadingBytesSize:  defMaxReadingByteSize,
+		readTimeoutDuration:  defTimeoutDuration,
+		writeTimeoutDuration: defTimeoutDuration,
 		readBuffer:           hbuffer.NewBuffer(),
 		writeBuffer:          hbuffer.NewBuffer(),
 	}
+}
+
+func (s *Socket) SetMaxReadingBytesSize(size int) {
+	s.maxReadingBytesSize = size
+}
+
+func (s *Socket) SetTimeoutDuration(readTimeoutDuration, writeTimeoutDuration time.Duration) {
+	s.readTimeoutDuration = readTimeoutDuration
+	s.writeTimeoutDuration = writeTimeoutDuration
 }
 
 func (s *Socket) ReadPacket(handlerPacket func(packet []byte)) error {
