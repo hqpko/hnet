@@ -141,9 +141,7 @@ func (s *Socket) readPacketLen(buffer *hbuffer.Buffer) (int, error) {
 		}
 		if b, e := buffer.ReadByte(); e != nil {
 			return 0, e
-		} else if b >= 0x80 {
-			buffer.Back(1)
-		} else {
+		} else if b < 0x80 {
 			buffer.SetPosition(p)
 			break
 		}
