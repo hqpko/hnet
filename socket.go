@@ -87,7 +87,7 @@ func (s *Socket) ReadOneBuffer(buffer *hbuffer.Buffer) error {
 
 func (s *Socket) WritePacket(b []byte) error {
 	s.writeBuffer.Reset()
-	s.writeBuffer.WriteUint32(uint32(len(b)))
+	s.writeBuffer.WriteEndianUint32(uint32(len(b)))
 	s.writeBuffer.WriteBytes(b)
 	return s.WriteBuffer(s.writeBuffer)
 }
@@ -106,7 +106,7 @@ func (s *Socket) writePacket2(b []byte) error {
 	}
 
 	s.writeBuffer.Reset()
-	s.writeBuffer.WriteUint32(uint32(len(b)))
+	s.writeBuffer.WriteEndianUint32(uint32(len(b)))
 	if _, e := s.Write(s.writeBuffer.GetBytes()); e != nil {
 		return e
 	}
@@ -134,18 +134,10 @@ func (s *Socket) read(buffer *hbuffer.Buffer) error {
 }
 
 func (s *Socket) readPacketLen(buffer *hbuffer.Buffer) (int, error) {
-	p := buffer.GetPosition()
-	for {
-		if _, e := buffer.ReadFull(s, 1); e != nil {
-			return 0, e
-		}
-		if b, e := buffer.ReadByte(); e != nil {
-			return 0, e
-		} else if b < 0x80 {
-			buffer.SetPosition(p)
-			break
-		}
+	if _, e := buffer.ReadFull(s, 4); e != nil {
+		return 0, e
+	} else {
+		l, e := buffer.ReadEndianUint32()
+		return int(l), e
 	}
-	i, e := buffer.ReadUint32()
-	return int(i), e
 }
