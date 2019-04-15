@@ -25,9 +25,9 @@ func getCall() *Call {
 	return callPool.Get().(*Call)
 }
 
-func putCall(sc *Call) {
-	sc.buf.Reset()
-	callPool.Put(sc)
+func PutCall(c *Call) {
+	c.buf.Reset()
+	callPool.Put(c)
 }
 
 type Call struct {
