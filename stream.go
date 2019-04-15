@@ -13,7 +13,22 @@ import (
 const (
 	callTypeRequest = 0x01
 	callTypeOneWay  = 0x02
+
+	defChannelSize = 1 << 6
 )
+
+var callPool = sync.Pool{New: func() interface{} {
+	return &Call{buf: hbuffer.NewBuffer(), c: make(chan *Call, 1)}
+}}
+
+func getCall() *Call {
+	return callPool.Get().(*Call)
+}
+
+func putCall(sc *Call) {
+	sc.buf.Reset()
+	callPool.Put(sc)
+}
 
 type Call struct {
 	seq    uint64
@@ -55,12 +70,13 @@ type Stream struct {
 	socket          *Socket
 	pendingLock     sync.Mutex
 	pending         map[uint64]*Call
+	mainChannelSize int
 	mainChannel     *hconcurrent.Concurrent
 	readCallHandler func(req, resp *hbuffer.Buffer)
 }
 
 func NewStream(socket *Socket) *Stream {
-	s := &Stream{bufferPool: hutils.NewBufferPool(), socket: socket, pendingLock: sync.Mutex{}, pending: map[uint64]*Call{}}
+	s := &Stream{bufferPool: hutils.NewBufferPool(), socket: socket, pendingLock: sync.Mutex{}, pending: map[uint64]*Call{}, mainChannelSize: defChannelSize}
 	return s
 }
 
@@ -69,64 +85,44 @@ func (s *Stream) SetReadCallHandler(f func(req, resp *hbuffer.Buffer)) *Stream {
 	return s
 }
 
-func (s *Stream) NewRequest(oneWay bool) *Call {
-	call := &Call{
-		buf:    s.bufferPool.Get(),
-		oneWay: oneWay,
-		c:      make(chan *Call, 1),
-	}
-	call.buf.WriteEndianUint32(0) // space for len
-	if !oneWay {
-		call.buf.WriteByte(callTypeRequest)
-		call.seq = atomic.AddUint64(&s.seq, 1)
-		call.buf.WriteUint64(call.seq)
-	} else {
-		call.buf.WriteByte(callTypeOneWay | callTypeRequest)
-	}
-	return call
+func (s *Stream) SetChannelSize(channelSize int) *Stream {
+	s.mainChannelSize = channelSize
+	return s
 }
 
-func (s *Stream) Request(call *Call) *Call {
-	// todo, 暂时不加 channel 直接发送，忽略网络传输时间
-	if !call.oneWay {
-		s.storeCall(call)
-	}
-	if call.doneIfError(s.send(call.buf)) && !call.oneWay {
-		s.deleteCall(call.seq)
-	}
-	return call
-}
+func (s *Stream) Run() error {
+	s.mainChannel = hconcurrent.NewConcurrent(s.mainChannelSize, 1, s.handlerChannel)
+	s.mainChannel.Start()
 
-func (s *Stream) Response(reqBuffer, respBuffer *hbuffer.Buffer) error {
-	s.bufferPool.Put(reqBuffer)
-	return s.send(respBuffer)
-}
-
-func (s *Stream) send(buffer *hbuffer.Buffer) error {
-	defer s.bufferPool.Put(buffer)
-	buffer.SetPosition(0)
-	buffer.WriteEndianUint32(uint32(buffer.Len() - 4))
-	return s.socket.WriteBuffer(buffer)
-}
-
-func (s *Stream) Read() error {
 	return s.socket.ReadBuffer(func(buffer *hbuffer.Buffer) {
 		callType, _ := buffer.ReadByte()
 		isRequest := callType&callTypeRequest != 0
 		if isRequest {
 			oneWay := callType&callTypeOneWay != 0
-			s.readRequestHandler(buffer, oneWay)
+			s.handlerRequest(buffer, oneWay)
 		} else {
-			seq, _ := buffer.ReadUint64()
-			if call, ok := s.loadCall(seq); ok {
-				call.buf = buffer
-				call.done()
-			}
+			s.handlerResponse(buffer)
 		}
 	}, s.bufferPool.Get)
 }
 
-func (s *Stream) readRequestHandler(buffer *hbuffer.Buffer, oneWay bool) {
+func (s *Stream) handlerChannel(i interface{}) interface{} {
+	if call, ok := i.(*Call); ok { // request call
+		if !call.oneWay {
+			s.storeCall(call)
+		}
+		if call.doneIfError(s.send(call.buf)) && !call.oneWay {
+			s.deleteCall(call.seq)
+		}
+	} else if respBuffer, ok := i.(*hbuffer.Buffer); ok {
+		if err := s.send(respBuffer); err != nil {
+			log.Printf("hrpc: stream send response error:%s", err.Error())
+		}
+	}
+	return nil
+}
+
+func (s *Stream) handlerRequest(buffer *hbuffer.Buffer, oneWay bool) {
 	var respBuffer *hbuffer.Buffer
 	if !oneWay {
 		respBuffer = s.bufferPool.Get()
@@ -138,7 +134,48 @@ func (s *Stream) readRequestHandler(buffer *hbuffer.Buffer, oneWay bool) {
 	s.readCallHandler(buffer, respBuffer)
 }
 
+func (s *Stream) handlerResponse(buffer *hbuffer.Buffer) {
+	seq, _ := buffer.ReadUint64()
+	if call, ok := s.loadCall(seq); ok {
+		call.buf = buffer
+		call.done()
+	} else {
+		log.Printf("hrpc: stream handler response, no call with seq:%d", seq)
+	}
+}
+
+func (s *Stream) NewCall(oneWay bool) *Call {
+	call := getCall()
+	call.oneWay = oneWay
+	call.buf.WriteEndianUint32(0) // space for len
+	if !oneWay {
+		call.buf.WriteByte(callTypeRequest)
+		call.seq = atomic.AddUint64(&s.seq, 1)
+		call.buf.WriteUint64(call.seq)
+	} else {
+		call.buf.WriteByte(callTypeOneWay | callTypeRequest)
+	}
+	return call
+}
+
+func (s *Stream) Call(call *Call) {
+	s.mainChannel.MustInput(call)
+}
+
+func (s *Stream) Reply(reqBuffer, respBuffer *hbuffer.Buffer) {
+	s.bufferPool.Put(reqBuffer)
+	s.mainChannel.MustInput(respBuffer)
+}
+
+func (s *Stream) send(buffer *hbuffer.Buffer) error {
+	defer s.bufferPool.Put(buffer)
+	buffer.SetPosition(0)
+	buffer.WriteEndianUint32(uint32(buffer.Len() - 4))
+	return s.socket.WriteBuffer(buffer)
+}
+
 func (s *Stream) Close() error {
+	s.mainChannel.Stop()
 	return s.socket.Close()
 }
 
