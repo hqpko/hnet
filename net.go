@@ -62,10 +62,10 @@ func KeepConnectSocket(network, addr string, reconnectDuration time.Duration,
 	for {
 		if socket, err := ConnectSocket(network, addr); err == nil {
 			fConnected(socket)
-		} else {
+		} else if fConnectError != nil {
 			fConnectError(err)
 		}
-		if fRetry() {
+		if fRetry != nil && fRetry() {
 			time.Sleep(reconnectDuration)
 		} else {
 			break
