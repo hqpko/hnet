@@ -59,16 +59,12 @@ func KeepConnectSocket(network, addr string, reconnectDuration time.Duration,
 	fConnected func(socket *Socket),
 	fConnectError func(err error),
 	fRetry func() bool) {
-	for {
+	for fRetry != nil && fRetry() {
 		if socket, err := ConnectSocket(network, addr); err == nil {
 			fConnected(socket)
 		} else if fConnectError != nil {
 			fConnectError(err)
-		}
-		if fRetry != nil && fRetry() {
 			time.Sleep(reconnectDuration)
-		} else {
-			break
 		}
 	}
 }
@@ -77,14 +73,10 @@ func KeepListenSocket(network, addr string, reListenDuration time.Duration,
 	fListened func(socket *Socket),
 	fListenError func(err error),
 	fRetry func() bool) {
-	for {
+	for fRetry != nil && fRetry() {
 		if err := ListenSocket(network, addr, fListened); err != nil && fListenError != nil {
 			fListenError(err)
-		}
-		if fRetry != nil && fRetry() {
 			time.Sleep(reListenDuration)
-		} else {
-			break
 		}
 	}
 }
