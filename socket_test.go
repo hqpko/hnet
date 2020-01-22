@@ -102,10 +102,19 @@ func TestSocketReadIncompleteBytes(t *testing.T) {
 		buf.WriteBytes(testData[:len(testData)/2])
 		_ = client.WriteBuffer(buf)
 		time.Sleep(time.Second)
+
 		buf.Reset()
 		buf.WriteBytes(testData[len(testData)/2:])
 		buf.WriteEndianUint32(uint32(len(testData)))
 		buf.WriteBytes(testData[:len(testData)/2])
+		time.Sleep(time.Second)
+
+		buf.WriteBytes(testData[len(testData)/2:])
+		buf.WriteEndianUint32(uint32(len(testData)))
+		buf.WriteBytes(testData[:len(testData)/2])
+		_ = client.WriteBuffer(buf)
+
+		buf.Reset()
 		time.Sleep(time.Second)
 		buf.WriteBytes(testData[len(testData)/2:])
 		_ = client.WriteBuffer(buf)
@@ -115,6 +124,9 @@ func TestSocketReadIncompleteBytes(t *testing.T) {
 		t.Errorf("read incomplete bytes fail.")
 	}
 
+	if resp, _ := server.ReadOnePacket(); !bytes.Equal(testData, resp) {
+		t.Errorf("read incomplete bytes fail.")
+	}
 	if resp, _ := server.ReadOnePacket(); !bytes.Equal(testData, resp) {
 		t.Errorf("read incomplete bytes fail.")
 	}
