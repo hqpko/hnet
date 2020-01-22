@@ -48,11 +48,21 @@ func (s *Socket) SetTimeoutDuration(readTimeoutDuration, writeTimeoutDuration ti
 
 func (s *Socket) ReadPacket(handlerPacket func(packet []byte)) error {
 	for {
-		s.readBuffer.Reset()
-		if e := s.read(s.readBuffer); e != nil {
+		if bytes, e := s.ReadOnePacket(); e != nil {
 			return e
+		} else {
+			handlerPacket(bytes)
 		}
-		handlerPacket(s.readBuffer.CopyRestOfBytes())
+	}
+}
+
+func (s *Socket) ReadOnePacket() ([]byte, error) {
+	if bytes, e := s.read(); e != nil {
+		return nil, e
+	} else {
+		data := make([]byte, len(bytes))
+		copy(data, bytes)
+		return data, nil
 	}
 }
 
@@ -66,23 +76,21 @@ func (s *Socket) ReadBuffer(handlerBuffer func(buffer *hbuffer.Buffer), handlers
 
 	for {
 		buffer := handlerGetBuffer()
-		if e := s.read(buffer); e != nil {
+		if e := s.ReadOneBuffer(buffer); e != nil {
 			return e
 		}
 		handlerBuffer(buffer)
 	}
 }
 
-func (s *Socket) ReadOnePacket() ([]byte, error) {
-	s.readBuffer.Reset()
-	if e := s.read(s.readBuffer); e != nil {
-		return nil, e
-	}
-	return s.readBuffer.CopyRestOfBytes(), nil
-}
-
 func (s *Socket) ReadOneBuffer(buffer *hbuffer.Buffer) error {
-	return s.read(buffer)
+	if bytes, err := s.read(); err != nil {
+		return err
+	} else {
+		buffer.WriteBytes(bytes)
+		buffer.SetPosition(0)
+	}
+	return nil
 }
 
 func (s *Socket) WritePacket(b []byte) error {
@@ -117,27 +125,17 @@ func (s *Socket) writePacket2(b []byte) error {
 	return e
 }
 
-func (s *Socket) read(buffer *hbuffer.Buffer) error {
+func (s *Socket) read() ([]byte, error) {
 	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
-		return e
+		return nil, e
 	}
-
-	if l, e := s.readPacketLen(buffer); e != nil {
-		return e
-	} else if l > s.maxReadingBytesSize {
-		return ErrOverMaxReadingSize
+	if _, e := s.readBuffer.ReadFull(s, 4); e != nil {
+		return nil, e
+	} else if l, _ := s.readBuffer.ReadEndianUint32(); int(l) > s.maxReadingBytesSize {
+		return nil, ErrOverMaxReadingSize
 	} else {
-		buffer.Reset()
-		_, e = buffer.ReadFull(s, int(l))
-		return e
-	}
-}
-
-func (s *Socket) readPacketLen(buffer *hbuffer.Buffer) (int, error) {
-	if _, e := buffer.ReadFull(s, 4); e != nil {
-		return 0, e
-	} else {
-		l, e := buffer.ReadEndianUint32()
-		return int(l), e
+		s.readBuffer.Reset()
+		_, e = s.readBuffer.ReadFull(s, int(l))
+		return s.readBuffer.GetBytes(), e
 	}
 }
