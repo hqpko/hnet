@@ -121,6 +121,9 @@ func (s *Socket) read() ([]byte, error) {
 			}
 			if s.readBuffer.Available() >= size {
 				bytes, _ := s.readBuffer.ReadBytes(size)
+				if s.readBuffer.Available() == 0 {
+					s.readBuffer.Reset()
+				}
 				return bytes, nil
 			} else if s.readBuffer.GetPosition() > 4 {
 				s.readBuffer.DeleteBefore(s.readBuffer.GetPosition() - 4)
