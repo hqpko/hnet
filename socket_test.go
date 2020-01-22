@@ -1,79 +1,88 @@
 package hnet
 
 import (
-	"fmt"
-	"math/rand"
-	"sync"
+	"net"
 	"testing"
-	"time"
 )
 
-func BenchmarkSocket_WritePacket(b *testing.B) {
-	network := "tcp"
-	addr := testGetAddr()
-	go func() {
-		_ = ListenSocket(network, addr, func(socket *Socket) {
-			_ = socket.ReadPacket(func(packet []byte) {})
-		})
-	}()
-
-	time.Sleep(100 * time.Millisecond)
-	s, e := ConnectSocket(network, addr)
-	if e != nil {
-		b.Fatal(e)
-	}
-	packet := []byte{0, 1, 2, 3, 4, 5, 6, 7}
-	for i := 0; i < b.N; i++ {
-		_ = s.WritePacket(packet)
-	}
+func BenchmarkSocket_Read_Write_1K(b *testing.B) {
+	benchmarkSocketReadWrite(b, 1024)
 }
 
-func BenchmarkSocket_WritePacket2(b *testing.B) {
-	network := "tcp"
-	addr := testGetAddr()
-	go func() {
-		_ = ListenSocket(network, addr, func(socket *Socket) {
-			_ = socket.ReadPacket(func(packet []byte) {})
-		})
-	}()
-
-	time.Sleep(100 * time.Millisecond)
-	s, _ := ConnectSocket(network, addr)
-	packet := []byte{0, 1, 2, 3, 4, 5, 6, 7}
-	for i := 0; i < b.N; i++ {
-		_ = s.writePacket2(packet)
-	}
+func BenchmarkSocket_Read2_Write_1K(b *testing.B) {
+	benchmarkSocketRead2Write(b, 1024)
 }
 
-func TestSocket(t *testing.T) {
-	network := "tcp"
-	addr := testGetAddr()
-	msg := "hello socket!"
-	w := &sync.WaitGroup{}
-	w.Add(1)
+func BenchmarkSocket_Read_Write_4K(b *testing.B) {
+	benchmarkSocketReadWrite(b, 4*1024)
+}
 
+func BenchmarkSocket_Read2_Write_4K(b *testing.B) {
+	benchmarkSocketRead2Write(b, 4*1024)
+}
+
+func BenchmarkSocket_Read_Write_16K(b *testing.B) {
+	benchmarkSocketReadWrite(b, 16*1024)
+}
+
+func BenchmarkSocket_Read2_Write_16K(b *testing.B) {
+	benchmarkSocketRead2Write(b, 16*1024)
+}
+
+func BenchmarkSocket_Read_Write_64K(b *testing.B) {
+	benchmarkSocketReadWrite(b, 64*1024)
+}
+
+func BenchmarkSocket_Read2_Write_64K(b *testing.B) {
+	benchmarkSocketRead2Write(b, 64*1024)
+}
+
+func benchmarkSocketReadWrite(b *testing.B, size int) {
+	testData := make([]byte, size)
+	client, server := testConn()
+	n := b.N
 	go func() {
-		_ = ListenSocket(network, addr, func(socket *Socket) {
-			_ = socket.WritePacket([]byte(msg))
-		})
-	}()
-
-	time.Sleep(100 * time.Millisecond)
-	s, e := ConnectSocket(network, addr)
-	if e != nil {
-		t.Fatal(e)
-	}
-	_ = s.ReadPacket(func(packet []byte) {
-		receiveMsg := string(packet)
-		if receiveMsg != msg {
-			t.Errorf("reading error msg:%s", receiveMsg)
+		for i := 0; i < n; i++ {
+			client.WritePacket(testData)
 		}
-		_ = s.Close()
-	})
+	}()
+	b.ResetTimer()
+	for i := 0; i < n; i++ {
+		server.read()
+	}
 }
 
-func testGetAddr() string {
-	rand.Seed(time.Now().UnixNano())
-	addr := fmt.Sprintf("127.0.0.1:%d", 10000+rand.Int31n(3000))
-	return addr
+func benchmarkSocketRead2Write(b *testing.B, size int) {
+	testData := make([]byte, size)
+	client, server := testConn()
+	n := b.N
+	go func() {
+		for i := 0; i < n; i++ {
+			client.WritePacket(testData)
+		}
+	}()
+	b.ResetTimer()
+	for i := 0; i < n; i++ {
+		server.read2()
+	}
+}
+
+func testConn() (client *Socket, server *Socket) {
+	c := make(chan *Socket)
+	if listen, err := net.Listen("tcp", "localhost:0"); err != nil {
+		panic(err)
+	} else {
+		addr := listen.Addr().String()
+		go func() {
+			if conn, err := listen.Accept(); err != nil {
+				panic(err)
+			} else {
+				c <- NewSocket(conn)
+			}
+		}()
+
+		client, err = ConnectSocket("tcp", addr)
+		server = <-c
+		return
+	}
 }

@@ -108,24 +108,33 @@ func (s *Socket) WriteBuffer(buffer *hbuffer.Buffer) error {
 	return e
 }
 
-func (s *Socket) writePacket2(b []byte) error {
-	if e := s.SetWriteDeadline(time.Now().Add(s.writeTimeoutDuration)); e != nil {
-		return e
+func (s *Socket) read() ([]byte, error) {
+	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
+		return nil, e
 	}
-
-	s.writeBuffer.Reset()
-	s.writeBuffer.WriteEndianUint32(uint32(len(b)))
-	if _, e := s.Write(s.writeBuffer.GetBytes()); e != nil {
-		return e
+	for {
+		if s.readBuffer.Available() > 4 {
+			l, _ := s.readBuffer.ReadEndianUint32()
+			size := int(l)
+			if size > s.maxReadingBytesSize {
+				return nil, ErrOverMaxReadingSize
+			}
+			if s.readBuffer.Available() >= size {
+				bytes, _ := s.readBuffer.ReadBytes(size)
+				return bytes, nil
+			} else if s.readBuffer.GetPosition() > 4 {
+				s.readBuffer.DeleteBefore(s.readBuffer.GetPosition() - 4)
+			}
+		}
+		s.readBuffer.SetPosition(s.readBuffer.Len())
+		if _, e := s.readBuffer.ReadFromReader(s); e != nil {
+			return nil, e
+		}
+		s.readBuffer.SetPosition(0)
 	}
-
-	s.writeBuffer.Reset()
-	s.writeBuffer.WriteBytes(b)
-	_, e := s.Write(s.writeBuffer.GetBytes())
-	return e
 }
 
-func (s *Socket) read() ([]byte, error) {
+func (s *Socket) read2() ([]byte, error) {
 	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
 		return nil, e
 	}
