@@ -108,7 +108,7 @@ func (s *Socket) WriteBuffer(buffer *hbuffer.Buffer) error {
 	return e
 }
 
-func (s *Socket) read() ([]byte, error) {
+func (s *Socket) read2() ([]byte, error) {
 	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
 		return nil, e
 	}
@@ -137,7 +137,7 @@ func (s *Socket) read() ([]byte, error) {
 	}
 }
 
-func (s *Socket) read2() ([]byte, error) {
+func (s *Socket) read() ([]byte, error) {
 	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
 		return nil, e
 	}
