@@ -49,34 +49,3 @@ func ConnectSocket(network, addr string) (*Socket, error) {
 	}
 	return NewSocket(c), nil
 }
-
-// KeepConnectSocket，保持对地址 addr 的连接
-// reconnectDuration 断线重连的时间间隔
-// fConnected 连接成功的回调
-// fConnectError 连接错误的回调
-// fRetry 是否继续保持连接的判断函数
-func KeepConnectSocket(network, addr string, reconnectDuration time.Duration,
-	fConnected func(socket *Socket),
-	fConnectError func(err error),
-	fRetry func() bool) {
-	for fRetry != nil && fRetry() {
-		if socket, err := ConnectSocket(network, addr); err == nil {
-			fConnected(socket)
-		} else if fConnectError != nil {
-			fConnectError(err)
-			time.Sleep(reconnectDuration)
-		}
-	}
-}
-
-func KeepListenSocket(network, addr string, reListenDuration time.Duration,
-	fListened func(socket *Socket),
-	fListenError func(err error),
-	fRetry func() bool) {
-	for fRetry != nil && fRetry() {
-		if err := ListenSocket(network, addr, fListened); err != nil && fListenError != nil {
-			fListenError(err)
-			time.Sleep(reListenDuration)
-		}
-	}
-}
