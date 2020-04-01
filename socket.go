@@ -35,13 +35,15 @@ func NewSocket(conn net.Conn) *Socket {
 	}
 }
 
-func (s *Socket) SetMaxReadingBytesSize(size int) {
+func (s *Socket) SetMaxReadingBytesSize(size int) *Socket {
 	s.maxReadingBytesSize = size
+	return s
 }
 
-func (s *Socket) SetTimeoutDuration(readTimeoutDuration, writeTimeoutDuration time.Duration) {
+func (s *Socket) SetTimeoutDuration(readTimeoutDuration, writeTimeoutDuration time.Duration) *Socket {
 	s.readTimeoutDuration = readTimeoutDuration
 	s.writeTimeoutDuration = writeTimeoutDuration
+	return s
 }
 
 func (s *Socket) ReadPacket(handlerPacket func(packet []byte)) error {
