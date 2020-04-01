@@ -87,16 +87,13 @@ func (s *Socket) ReadOneBuffer(buffer *hbuffer.Buffer) error {
 	if bytes, err := s.read(); err != nil {
 		return err
 	} else {
-		buffer.WriteBytes(bytes)
-		buffer.SetPosition(0)
+		buffer.WriteBytes(bytes).SetPosition(0)
 	}
 	return nil
 }
 
 func (s *Socket) WritePacket(b []byte) error {
-	s.writeBuffer.Reset()
-	s.writeBuffer.WriteEndianUint32(uint32(len(b)))
-	s.writeBuffer.WriteBytes(b)
+	s.writeBuffer.Reset().WriteEndianUint32(uint32(len(b))).WriteBytes(b)
 	return s.WriteBuffer(s.writeBuffer)
 }
 
@@ -146,8 +143,7 @@ func (s *Socket) read() ([]byte, error) {
 	} else if l, _ := s.readBuffer.ReadEndianUint32(); int(l) > s.maxReadingBytesSize {
 		return nil, ErrOverMaxReadingSize
 	} else {
-		s.readBuffer.Reset()
-		_, e = s.readBuffer.ReadFull(s, int(l))
+		_, e = s.readBuffer.Reset().ReadFull(s, int(l))
 		return s.readBuffer.GetBytes(), e
 	}
 }

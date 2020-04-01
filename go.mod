@@ -1,5 +1,5 @@
 module github.com/hqpko/hnet
 
-go 1.13
+go 1.14
 
-require github.com/hqpko/hbuffer v0.2.3
+require github.com/hqpko/hbuffer v0.3.2

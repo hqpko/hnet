@@ -146,7 +146,7 @@ func testConn() (client *Socket, server *Socket) {
 			}
 		}()
 
-		client, err = ConnectSocket("tcp", addr)
+		client, err = ConnectSocket(addr)
 		server = <-c
 		return
 	}
