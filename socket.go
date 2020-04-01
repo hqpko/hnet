@@ -57,7 +57,13 @@ func (s *Socket) ReadPacket(handlerPacket func(packet []byte)) error {
 }
 
 func (s *Socket) ReadOnePacket() ([]byte, error) {
-	return s.read()
+	if bytes, err := s.read(); err != nil {
+		return nil, err
+	} else {
+		newBytes := make([]byte, len(bytes))
+		copy(newBytes, bytes) // socket.read() 使用的是 socket.readBuffer 缓存，读取的数据需要 copy 后使用
+		return newBytes, nil
+	}
 }
 
 func (s *Socket) ReadBuffer(handlerBuffer func(buffer *hbuffer.Buffer), handlerGetBuffer func() *hbuffer.Buffer) error {
@@ -107,7 +113,7 @@ func (s *Socket) read() ([]byte, error) {
 		return nil, ErrOverMaxReadingSize
 	} else {
 		_, e = s.readBuffer.Reset().ReadFull(s, int(l))
-		return s.readBuffer.CopyBytes(), e
+		return s.readBuffer.GetBytes(), e // 此处不使用 buffer.CopyBytes()，在 socket.ReadBuffer 中会 buffer.WriteBytes 会 copy，不需要在此处 copy
 	}
 }
 
