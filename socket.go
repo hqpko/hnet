@@ -22,8 +22,6 @@ type Socket struct {
 	writeTimeoutDuration time.Duration
 	readBuffer           *hbuffer.Buffer
 	writeBuffer          *hbuffer.Buffer
-	handlerGetBuffer     func() *hbuffer.Buffer
-	handlerPutBuffer     func(buffer *hbuffer.Buffer)
 }
 
 func NewSocket(conn net.Conn) *Socket {
