@@ -3,6 +3,7 @@ package hnet
 import (
 	"errors"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/hqpko/hbuffer"
@@ -17,6 +18,8 @@ const (
 
 type Socket struct {
 	net.Conn
+	readLock             sync.Mutex
+	writeLock            sync.Mutex
 	maxReadingBytesSize  int
 	readTimeoutDuration  time.Duration
 	writeTimeoutDuration time.Duration
@@ -57,13 +60,7 @@ func (s *Socket) ReadPacket(handlerPacket func(packet []byte)) error {
 }
 
 func (s *Socket) ReadOnePacket() ([]byte, error) {
-	if bytes, err := s.read(); err != nil {
-		return nil, err
-	} else {
-		newBytes := make([]byte, len(bytes))
-		copy(newBytes, bytes) // socket.read() 使用的是 socket.readBuffer 缓存，读取的数据需要 copy 后使用
-		return newBytes, nil
-	}
+	return s.read()
 }
 
 func (s *Socket) ReadBuffer(handlerBuffer func(buffer *hbuffer.Buffer), handlerGetBuffer func() *hbuffer.Buffer) error {
@@ -90,6 +87,8 @@ func (s *Socket) ReadOneBuffer(buffer *hbuffer.Buffer) error {
 
 // WritePacket 写入一条消息数据，不带包头长度
 func (s *Socket) WritePacket(b []byte) error {
+	s.writeLock.Lock()
+	defer s.writeLock.Unlock()
 	s.writeBuffer.Reset().WriteEndianUint32(uint32(len(b))).WriteBytes(b)
 	return s.WriteBuffer(s.writeBuffer)
 }
@@ -104,6 +103,8 @@ func (s *Socket) WriteBuffer(buffer *hbuffer.Buffer) error {
 }
 
 func (s *Socket) read() ([]byte, error) {
+	s.readLock.Lock()
+	defer s.readLock.Unlock()
 	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
 		return nil, e
 	}
@@ -113,7 +114,7 @@ func (s *Socket) read() ([]byte, error) {
 		return nil, ErrOverMaxReadingSize
 	} else {
 		_, e = s.readBuffer.Reset().ReadFull(s, int(l))
-		return s.readBuffer.GetBytes(), e // 此处不使用 buffer.CopyBytes()，在 socket.ReadBuffer 中会 buffer.WriteBytes 会 copy，不需要在此处 copy
+		return s.readBuffer.CopyBytes(), e
 	}
 }
 

@@ -9,6 +9,48 @@ import (
 	"github.com/hqpko/hbuffer"
 )
 
+func TestSocket_WritePacket_Concurrent(t *testing.T) {
+	testPacket := []byte{1, 2, 3, 4, 5}
+	client, server := testConn()
+	goCount := 100
+	writeCount := 10000
+	for i := 0; i < goCount; i++ {
+		go func() {
+			for i := 0; i < writeCount; i++ {
+				_ = client.WritePacket(testPacket)
+			}
+		}()
+	}
+	for i := 0; i < goCount*writeCount; i++ {
+		if resp, err := server.ReadOnePacket(); err != nil {
+			t.Error(err)
+		} else if !bytes.Equal(testPacket, resp) {
+			t.Errorf("read packet error, should be %v, but %v", testPacket, resp)
+		}
+	}
+}
+
+func TestSocket_WriteBuffer_Concurrent(t *testing.T) {
+	testPacket := []byte{1, 2, 3, 4, 5}
+	client, server := testConn()
+	goCount := 100
+	writeCount := 10000
+	for i := 0; i < goCount; i++ {
+		go func() {
+			for i := 0; i < writeCount; i++ {
+				_ = client.WriteBuffer(hbuffer.NewBufferWithHead().WriteBytes(testPacket).UpdateHead())
+			}
+		}()
+	}
+	for i := 0; i < goCount*writeCount; i++ {
+		if resp, err := server.ReadOnePacket(); err != nil {
+			t.Error(err)
+		} else if !bytes.Equal(testPacket, resp) {
+			t.Errorf("read packet error, should be %v, but %v", testPacket, resp)
+		}
+	}
+}
+
 func BenchmarkSocket_Read_Write_1K(b *testing.B) {
 	benchmarkSocketReadWrite(b, 1024)
 }
