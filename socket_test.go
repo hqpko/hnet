@@ -41,6 +41,81 @@ func BenchmarkSocket_Read2_Write_64K(b *testing.B) {
 	benchmarkSocketRead2Write(b, 64*1024)
 }
 
+func BenchmarkSocket_Read_Write2_1K(b *testing.B) {
+	benchmarkSocketReadWrite2(b, 1024)
+}
+
+func BenchmarkSocket_Read_Write2_4K(b *testing.B) {
+	benchmarkSocketReadWrite2(b, 4*1024)
+}
+
+func BenchmarkSocket_Read_Write2_16K(b *testing.B) {
+	benchmarkSocketReadWrite2(b, 16*1024)
+}
+
+func BenchmarkSocket_Read_Write2_64K(b *testing.B) {
+	benchmarkSocketReadWrite2(b, 64*1024)
+}
+
+func BenchmarkSocket_Read_Write_More_64K(b *testing.B) {
+	benchmarkSocketReadWriteMore(b, 64*1024)
+}
+
+func BenchmarkSocket_Read_Write2_More_64K(b *testing.B) {
+	benchmarkSocketReadWriteMore2(b, 64*1024)
+}
+
+func benchmarkSocketReadWrite2(b *testing.B, size int) {
+	testData := make([]byte, size)
+	client, server := testConn()
+	n := b.N
+	go func() {
+		for i := 0; i < n; i++ {
+			client.writePacket2(testData)
+		}
+	}()
+	b.ResetTimer()
+	for i := 0; i < n; i++ {
+		server.read()
+	}
+}
+
+func benchmarkSocketReadWriteMore(b *testing.B, size int) {
+	data := make([][]byte, 10)
+	for i := range data {
+		data[i] = make([]byte, size)
+	}
+	client, server := testConn()
+	n := b.N
+	go func() {
+		for i := 0; i < n; i++ {
+			client.writePackets(data...)
+		}
+	}()
+	b.ResetTimer()
+	for i := 0; i < n; i++ {
+		server.read()
+	}
+}
+
+func benchmarkSocketReadWriteMore2(b *testing.B, size int) {
+	data := make([][]byte, 10)
+	for i := range data {
+		data[i] = make([]byte, size)
+	}
+	client, server := testConn()
+	n := b.N
+	go func() {
+		for i := 0; i < n; i++ {
+			client.writePackets2(data...)
+		}
+	}()
+	b.ResetTimer()
+	for i := 0; i < n; i++ {
+		server.read()
+	}
+}
+
 func benchmarkSocketReadWrite(b *testing.B, size int) {
 	testData := make([]byte, size)
 	client, server := testConn()

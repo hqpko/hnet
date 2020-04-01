@@ -105,6 +105,48 @@ func (s *Socket) WriteBuffer(buffer *hbuffer.Buffer) error {
 	return e
 }
 
+func (s *Socket) read() ([]byte, error) {
+	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
+		return nil, e
+	}
+	if _, e := s.readBuffer.ReadFull(s, 4); e != nil {
+		return nil, e
+	} else if l, _ := s.readBuffer.ReadEndianUint32(); int(l) > s.maxReadingBytesSize {
+		return nil, ErrOverMaxReadingSize
+	} else {
+		_, e = s.readBuffer.Reset().ReadFull(s, int(l))
+		return s.readBuffer.GetBytes(), e
+	}
+}
+
+func (s *Socket) writePackets(bs ...[]byte) error {
+	s.writeBuffer.Reset().WriteEndianUint32(0)
+	for _, b := range bs {
+		s.writeBuffer.WriteBytes(b)
+	}
+	return s.WriteBuffer(s.writeBuffer.UpdateHead())
+}
+
+// bench 测试结果，net.Buffers.WriteTo 使用 writev 方式，zero copy 但性能更低了，见 bench_read_write2 测试集
+func (s *Socket) writePacket2(b []byte) error {
+	buf := &net.Buffers{s.writeBuffer.Reset().WriteEndianUint32(uint32(len(b))).GetBytes(), b}
+	_, e := buf.WriteTo(s)
+	return e
+}
+
+// 即使每次发送更多的数据，net.Buffers.WriteTo 也没有更好的表现，结论是继续使用内存拷贝方式传输数据(socket.WritePacket)，见 bench_read_write_more 测试集
+func (s *Socket) writePackets2(bs ...[]byte) error {
+	l := 0
+	buf := make(net.Buffers, len(bs)+1)
+	for i, b := range bs {
+		buf[i+1] = b
+		l += len(b)
+	}
+	buf[0] = s.writeBuffer.Reset().WriteEndianUint32(uint32(l)).GetBytes()
+	_, e := (&buf).WriteTo(s)
+	return e
+}
+
 func (s *Socket) read2() ([]byte, error) {
 	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
 		return nil, e
@@ -131,19 +173,5 @@ func (s *Socket) read2() ([]byte, error) {
 			return nil, e
 		}
 		s.readBuffer.SetPosition(0)
-	}
-}
-
-func (s *Socket) read() ([]byte, error) {
-	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
-		return nil, e
-	}
-	if _, e := s.readBuffer.ReadFull(s, 4); e != nil {
-		return nil, e
-	} else if l, _ := s.readBuffer.ReadEndianUint32(); int(l) > s.maxReadingBytesSize {
-		return nil, ErrOverMaxReadingSize
-	} else {
-		_, e = s.readBuffer.Reset().ReadFull(s, int(l))
-		return s.readBuffer.GetBytes(), e
 	}
 }
