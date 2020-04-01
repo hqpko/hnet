@@ -60,14 +60,10 @@ func (s *Socket) ReadOnePacket() ([]byte, error) {
 	return s.read()
 }
 
-func (s *Socket) ReadBuffer(handlerBuffer func(buffer *hbuffer.Buffer), handlersGetBuffer ...func() *hbuffer.Buffer) error {
-	var handlerGetBuffer func() *hbuffer.Buffer
-	if len(handlersGetBuffer) > 0 {
-		handlerGetBuffer = handlersGetBuffer[0]
-	} else {
+func (s *Socket) ReadBuffer(handlerBuffer func(buffer *hbuffer.Buffer), handlerGetBuffer func() *hbuffer.Buffer) error {
+	if handlerGetBuffer == nil {
 		handlerGetBuffer = func() *hbuffer.Buffer { return hbuffer.NewBuffer() }
 	}
-
 	for {
 		buffer := handlerGetBuffer()
 		if e := s.ReadOneBuffer(buffer); e != nil {
