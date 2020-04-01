@@ -81,16 +81,18 @@ func (s *Socket) ReadOneBuffer(buffer *hbuffer.Buffer) error {
 	if bytes, err := s.read(); err != nil {
 		return err
 	} else {
-		buffer.WriteBytes(bytes).SetPosition(0)
+		buffer.Reset().WriteBytes(bytes).SetPosition(0)
 	}
 	return nil
 }
 
+// WritePacket 写入一条消息数据，不带包头长度
 func (s *Socket) WritePacket(b []byte) error {
 	s.writeBuffer.Reset().WriteEndianUint32(uint32(len(b))).WriteBytes(b)
 	return s.WriteBuffer(s.writeBuffer)
 }
 
+// WriteBuffer 写入一个 buffer，buffer 已自带长度包头，直接发送即可，配合 hbuffer.NewBufferWithHead() 使用
 func (s *Socket) WriteBuffer(buffer *hbuffer.Buffer) error {
 	if e := s.SetWriteDeadline(time.Now().Add(s.writeTimeoutDuration)); e != nil {
 		return e
