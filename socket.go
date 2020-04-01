@@ -57,13 +57,7 @@ func (s *Socket) ReadPacket(handlerPacket func(packet []byte)) error {
 }
 
 func (s *Socket) ReadOnePacket() ([]byte, error) {
-	if bytes, e := s.read(); e != nil {
-		return nil, e
-	} else {
-		data := make([]byte, len(bytes))
-		copy(data, bytes)
-		return data, nil
-	}
+	return s.read()
 }
 
 func (s *Socket) ReadBuffer(handlerBuffer func(buffer *hbuffer.Buffer), handlersGetBuffer ...func() *hbuffer.Buffer) error {
@@ -115,7 +109,7 @@ func (s *Socket) read() ([]byte, error) {
 		return nil, ErrOverMaxReadingSize
 	} else {
 		_, e = s.readBuffer.Reset().ReadFull(s, int(l))
-		return s.readBuffer.GetBytes(), e
+		return s.readBuffer.CopyBytes(), e
 	}
 }
 
