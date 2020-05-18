@@ -2,6 +2,7 @@ package hnet
 
 import (
 	"errors"
+	"io"
 	"net"
 	"sync"
 	"time"
@@ -113,8 +114,9 @@ func (s *Socket) read() ([]byte, error) {
 	} else if l, _ := s.readBuffer.ReadEndianUint32(); int(l) > s.maxReadingBytesSize {
 		return nil, ErrOverMaxReadingSize
 	} else {
-		_, e = s.readBuffer.Reset().ReadFull(s, int(l))
-		return s.readBuffer.CopyBytes(), e
+		payload := make([]byte, int(l))
+		_, e = io.ReadFull(s, payload)
+		return payload, e
 	}
 }
 
