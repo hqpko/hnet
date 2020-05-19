@@ -78,12 +78,19 @@ func (s *Socket) ReadBuffer(handlerBuffer func(buffer *hbuffer.Buffer), handlerG
 }
 
 func (s *Socket) ReadOneBuffer(buffer *hbuffer.Buffer) error {
-	if bytes, err := s.read(); err != nil {
-		return err
-	} else {
-		buffer.Reset().WriteBytes(bytes).SetPosition(0)
+	s.readLock.Lock()
+	defer s.readLock.Unlock()
+	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
+		return e
 	}
-	return nil
+	if _, e := s.readBuffer.ReadFull(s, 4); e != nil {
+		return e
+	} else if l, _ := s.readBuffer.ReadEndianUint32(); int(l) > s.maxReadingBytesSize {
+		return ErrOverMaxReadingSize
+	} else {
+		_, e = buffer.ReadFull(s, int(l))
+		return e
+	}
 }
 
 // WritePacket 写入一条消息数据，不带包头长度
