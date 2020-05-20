@@ -116,7 +116,7 @@ func (s *Socket) read() ([]byte, error) {
 	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
 		return nil, e
 	}
-	if _, e := s.readBuffer.ReadFull(s, 4); e != nil {
+	if _, e := s.readBuffer.Reset().ReadFull(s, 4); e != nil {
 		return nil, e
 	} else if l, _ := s.readBuffer.ReadEndianUint32(); int(l) > s.maxReadingBytesSize {
 		return nil, ErrOverMaxReadingSize
