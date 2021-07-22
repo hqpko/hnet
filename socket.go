@@ -83,9 +83,9 @@ func (s *Socket) ReadOneBuffer(buffer *hbuffer.Buffer) error {
 	if e := s.SetReadDeadline(time.Now().Add(s.readTimeoutDuration)); e != nil {
 		return e
 	}
-	if _, e := s.readBuffer.ReadFull(s, 4); e != nil {
+	if _, e := buffer.ReadFull(s, 4); e != nil {
 		return e
-	} else if l, _ := s.readBuffer.ReadEndianUint32(); int(l) > s.maxReadingBytesSize {
+	} else if l, _ := buffer.ReadEndianUint32(); int(l) > s.maxReadingBytesSize {
 		return ErrOverMaxReadingSize
 	} else {
 		_, e = buffer.ReadFull(s, int(l))
