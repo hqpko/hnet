@@ -85,7 +85,7 @@ func (s *Socket) ReadOneBuffer(buffer *hbuffer.Buffer) error {
 	}
 	if _, e := buffer.ReadFull(s, 4); e != nil {
 		return e
-	} else if l, _ := buffer.ReadEndianUint32(); int(l) > s.maxReadingBytesSize {
+	} else if l, _ := buffer.ReadUint32(); int(l) > s.maxReadingBytesSize {
 		return ErrOverMaxReadingSize
 	} else {
 		_, e = buffer.ReadFull(s, int(l))
@@ -97,7 +97,7 @@ func (s *Socket) ReadOneBuffer(buffer *hbuffer.Buffer) error {
 func (s *Socket) WritePacket(b []byte) error {
 	s.writeLock.Lock()
 	defer s.writeLock.Unlock()
-	s.writeBuffer.Reset().WriteEndianUint32(uint32(len(b))).WriteBytes(b)
+	s.writeBuffer.Reset().WriteUint32(uint32(len(b))).WriteBytes(b)
 	return s.WriteBuffer(s.writeBuffer)
 }
 
@@ -118,7 +118,7 @@ func (s *Socket) read() ([]byte, error) {
 	}
 	if _, e := s.readBuffer.Reset().ReadFull(s, 4); e != nil {
 		return nil, e
-	} else if l, _ := s.readBuffer.ReadEndianUint32(); int(l) > s.maxReadingBytesSize {
+	} else if l, _ := s.readBuffer.ReadUint32(); int(l) > s.maxReadingBytesSize {
 		return nil, ErrOverMaxReadingSize
 	} else {
 		payload := make([]byte, int(l))
@@ -128,7 +128,7 @@ func (s *Socket) read() ([]byte, error) {
 }
 
 func (s *Socket) writePackets(bs ...[]byte) error {
-	s.writeBuffer.Reset().WriteEndianUint32(0)
+	s.writeBuffer.Reset().WriteUint32(0)
 	for _, b := range bs {
 		s.writeBuffer.WriteBytes(b)
 	}
@@ -137,7 +137,7 @@ func (s *Socket) writePackets(bs ...[]byte) error {
 
 // bench 测试结果，net.Buffers.WriteTo 使用 writev 方式，zero copy 但性能更低了，见 bench_read_write2 测试集
 func (s *Socket) writePacket2(b []byte) error {
-	buf := &net.Buffers{s.writeBuffer.Reset().WriteEndianUint32(uint32(len(b))).GetBytes(), b}
+	buf := &net.Buffers{s.writeBuffer.Reset().WriteUint32(uint32(len(b))).GetBytes(), b}
 	_, e := buf.WriteTo(s)
 	return e
 }
@@ -150,7 +150,7 @@ func (s *Socket) writePackets2(bs ...[]byte) error {
 		buf[i+1] = b
 		l += len(b)
 	}
-	buf[0] = s.writeBuffer.Reset().WriteEndianUint32(uint32(l)).GetBytes()
+	buf[0] = s.writeBuffer.Reset().WriteUint32(uint32(l)).GetBytes()
 	_, e := (&buf).WriteTo(s)
 	return e
 }
@@ -161,7 +161,7 @@ func (s *Socket) read2() ([]byte, error) {
 	}
 	for {
 		if s.readBuffer.Available() > 4 {
-			l, _ := s.readBuffer.ReadEndianUint32()
+			l, _ := s.readBuffer.ReadUint32()
 			size := int(l)
 			if size > s.maxReadingBytesSize {
 				return nil, ErrOverMaxReadingSize

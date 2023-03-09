@@ -215,19 +215,19 @@ func TestSocketReadIncompleteBytes(t *testing.T) {
 	testData := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 	go func() {
 		buf := hbuffer.NewBuffer()
-		buf.WriteEndianUint32(uint32(len(testData)))
+		buf.WriteUint32(uint32(len(testData)))
 		buf.WriteBytes(testData[:len(testData)/2])
 		_ = client.WriteBuffer(buf)
 		time.Sleep(time.Second)
 
 		buf.Reset()
 		buf.WriteBytes(testData[len(testData)/2:])
-		buf.WriteEndianUint32(uint32(len(testData)))
+		buf.WriteUint32(uint32(len(testData)))
 		buf.WriteBytes(testData[:len(testData)/2])
 		time.Sleep(time.Second)
 
 		buf.WriteBytes(testData[len(testData)/2:])
-		buf.WriteEndianUint32(uint32(len(testData)))
+		buf.WriteUint32(uint32(len(testData)))
 		buf.WriteBytes(testData[:len(testData)/2])
 		_ = client.WriteBuffer(buf)
 
