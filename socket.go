@@ -50,6 +50,12 @@ func (s *Socket) SetTimeoutDuration(readTimeoutDuration, writeTimeoutDuration ti
 	return s
 }
 
+func (s *Socket) SetBufferEndian(endian hbuffer.Endian) *Socket {
+	s.readBuffer.SetEndian(endian)
+	s.writeBuffer.SetEndian(endian)
+	return s
+}
+
 func (s *Socket) ReadPacket(handlerPacket func(packet []byte)) error {
 	for {
 		if bytes, e := s.ReadOnePacket(); e != nil {
